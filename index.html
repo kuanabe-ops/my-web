@@ -3,7 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Ultra Gear Pro - Scrollable Edition</title>
+    <title>Ultra Gear Pro</title>
+    
+    <link rel="icon" type="image/png" href="icon.png">
+    <link rel="apple-touch-icon" href="icon.png">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="UltraGear">
+
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
@@ -13,7 +20,6 @@
         .hide { display: none !important; }
         #view-container { height: 100vh; width: 100%; }
         circle { transition: stroke-dasharray 0.5s ease, stroke-dashoffset 0.5s ease; }
-        /* 隱藏滾動條但保持功能 (可選) */
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
@@ -60,14 +66,13 @@
     </div>
 
     <script>
-        // --- DATA ---
+        // 資料與邏輯部分保持不變
         let gear = JSON.parse(localStorage.getItem('ultra_gear') || '[]');
         let categories = JSON.parse(localStorage.getItem('ultra_cats') || '[{"id":"c1","name":"睡眠系統"},{"id":"c2","name":"背負系統"},{"id":"c3","name":"炊具飲食"}]');
         let trips = JSON.parse(localStorage.getItem('ultra_trips') || '[]');
         let activeTab = 'gear', currentView = 'list', editingId = null, tempFormData = {}, tripSortMode = 'date', catSortMode = false;
         const COLORS = ["#111111", "#555555", "#888888", "#aaaaaa", "#cccccc", "#eeeeee"];
 
-        // --- HELPERS ---
         function getDateRange(startDate, days){
             if(!startDate) return '未定日期';
             const start = new Date(startDate);
@@ -100,15 +105,12 @@
             }).join('');
         }
 
-        // --- RENDER CORE ---
         function render() {
             const container = document.getElementById('view-container');
             const gearBtn = document.getElementById('nav-gear');
             const tripBtn = document.getElementById('nav-trips');
             const nav = document.getElementById('bottom-nav');
-            
             nav.classList.toggle('hide', currentView !== 'list');
-
             if(activeTab === 'gear') {
                 gearBtn.className = gearBtn.className.replace('text-neutral-300', 'text-neutral-900');
                 tripBtn.className = tripBtn.className.replace('text-neutral-900', 'text-neutral-300');
@@ -116,7 +118,6 @@
                 tripBtn.className = tripBtn.className.replace('text-neutral-300', 'text-neutral-900');
                 gearBtn.className = gearBtn.className.replace('text-neutral-900', 'text-neutral-300');
             }
-
             if (currentView === 'list') renderListView(container);
             else if (currentView === 'gear-form') renderGearForm(container);
             else if (currentView === 'cat-manager') renderCatManager(container);
@@ -154,47 +155,16 @@
         function renderCatManager(container) {
             container.innerHTML = `
             <div class="p-6 pt-12 flex flex-col h-full animate-in">
-                <button onclick="currentView='list'; render()" class="mb-6 text-neutral-400 flex items-center gap-1 self-start">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg>返回
-                </button>
-                
-                <div class="flex justify-between items-center mb-6">
-                    <h2 class="text-xl font-semibold">分類管理</h2>
-                    <button onclick="catSortMode=!catSortMode;render()" 
-                        class="text-[10px] px-3 py-1 rounded-full ${catSortMode?'bg-neutral-900 text-white':'bg-neutral-100 text-neutral-500'}">
-                        排序模式
-                    </button>
-                </div>
-
+                <button onclick="currentView='list'; render()" class="mb-6 text-neutral-400 flex items-center gap-1 self-start"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg>返回</button>
+                <div class="flex justify-between items-center mb-6"><h2 class="text-xl font-semibold">分類管理</h2><button onclick="catSortMode=!catSortMode;render()" class="text-[10px] px-3 py-1 rounded-full ${catSortMode?'bg-neutral-900 text-white':'bg-neutral-100 text-neutral-500'}">排序模式</button></div>
                 <div class="flex-1 overflow-y-auto space-y-3 mb-6 no-scrollbar pr-1">
-                    ${categories.map(c => `
-                    <div class="flex items-center gap-2 bg-white border border-neutral-100 p-3 rounded-2xl shadow-sm">
-                        ${catSortMode ? `
-                        <div class="flex flex-col gap-1 pr-1">
-                            <button onclick="moveCatUp('${c.id}')" class="text-[8px] p-1 bg-neutral-50 rounded hover:bg-neutral-100">▲</button>
-                            <button onclick="moveCatDown('${c.id}')" class="text-[8px] p-1 bg-neutral-50 rounded hover:bg-neutral-100">▼</button>
-                        </div>
-                        ` : ''}
-                        <input class="flex-1 outline-none text-sm font-medium bg-transparent" 
-                            value="${c.name}" 
-                            onchange="updateCatName('${c.id}',this.value)">
-                        <button onclick="deleteCategory('${c.id}')" class="p-2 text-neutral-300 hover:text-red-500 transition-colors">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-                            </svg>
-                        </button>
+                    ${categories.map(c => `<div class="flex items-center gap-2 bg-white border border-neutral-100 p-3 rounded-2xl shadow-sm">
+                        ${catSortMode ? `<div class="flex flex-col gap-1 pr-1"><button onclick="moveCatUp('${c.id}')" class="text-[8px] p-1 bg-neutral-50 rounded">▲</button><button onclick="moveCatDown('${c.id}')" class="text-[8px] p-1 bg-neutral-50 rounded">▼</button></div>` : ''}
+                        <input class="flex-1 outline-none text-sm font-medium bg-transparent" value="${c.name}" onchange="updateCatName('${c.id}',this.value)">
+                        <button onclick="deleteCategory('${c.id}')" class="p-2 text-neutral-300 hover:text-red-500 transition-colors"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
                     </div>`).join('')}
                 </div>
-
-                <div class="flex gap-2 pb-10">
-                    <input id="new-cat-name" 
-                        class="flex-1 bg-neutral-50 px-5 py-4 rounded-2xl outline-none text-sm border border-transparent focus:border-neutral-200" 
-                        placeholder="新分類名稱...">
-                    <button onclick="addCat()" 
-                        class="w-14 h-14 bg-neutral-900 text-white rounded-2xl flex items-center justify-center text-2xl font-light shadow-lg active:scale-95 transition-transform">
-                        ＋
-                    </button>
-                </div>
+                <div class="flex gap-2 pb-10"><input id="new-cat-name" class="flex-1 bg-neutral-50 px-5 py-4 rounded-2xl outline-none text-sm border border-transparent focus:border-neutral-200" placeholder="新分類名稱..."><button onclick="addCat()" class="w-14 h-14 bg-neutral-900 text-white rounded-2xl flex items-center justify-center text-2xl font-light shadow-lg">＋</button></div>
             </div>`;
         }
 
@@ -214,7 +184,7 @@
                             return `<div class="flex items-center justify-between py-3"><div class="${st==='leave'?'opacity-20':''}"><div class="text-sm font-medium">${i.name}</div><div class="text-[10px] text-neutral-400">${i.weight}g</div></div><div class="flex gap-2"><button onclick="toggleGearStatus('${i.id}','leave')" class="w-8 h-8 rounded-full flex items-center justify-center ${st==='leave'?'bg-neutral-200 text-white':'bg-neutral-50 text-neutral-300'}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button><button onclick="toggleGearStatus('${i.id}','take')" class="w-8 h-8 rounded-full flex items-center justify-center ${st==='take'?'bg-neutral-900 text-white':'bg-neutral-50 text-neutral-300'}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg></button></div></div>` }).join('')}</div>` }).join('')}</div></div>`;
         }
 
-        // --- CORE LOGIC ---
+        // 邏輯函式
         function switchTab(tab) { activeTab = tab; currentView = 'list'; render(); }
         function saveData() { localStorage.setItem('ultra_gear', JSON.stringify(gear)); localStorage.setItem('ultra_cats', JSON.stringify(categories)); localStorage.setItem('ultra_trips', JSON.stringify(trips)); render(); }
         function closeModal(id) { document.getElementById(id).classList.add('hide'); }
@@ -222,13 +192,12 @@
         function editGear(id) { editingId = id; tempFormData = {...gear.find(g => g.id === id)}; currentView = 'gear-form'; render(); }
         function editTrip(id) { editingId = id; tempFormData = {...trips.find(t => t.id === id)}; currentView = 'trip-form'; render(); }
         function updateCatName(id, name) { categories = categories.map(c=>c.id===id?{...c, name:name.trim()}:c); saveData(); }
-        function deleteCategory(id) { if(!confirm("確定刪除分類？這會讓該分類下的裝備變為『未分類』。")) return; categories = categories.filter(c => c.id !== id); gear = gear.map(g=>g.category===id?{...g,category:''}:g); saveData(); }
+        function deleteCategory(id) { if(!confirm("確定刪除分類？")) return; categories = categories.filter(c => c.id !== id); gear = gear.map(g=>g.category===id?{...g,category:''}:g); saveData(); }
         function addCat() { const n = document.getElementById('new-cat-name').value.trim(); if (!n) return; categories.push({id:'c'+Date.now(), name:n}); saveData(); }
         function moveCatUp(id){ const idx = categories.findIndex(c=>c.id===id); if(idx<=0) return; [categories[idx-1], categories[idx]] = [categories[idx], categories[idx-1]]; saveData(); }
         function moveCatDown(id){ const idx = categories.findIndex(c=>c.id===id); if(idx===-1 || idx===categories.length-1) return; [categories[idx+1], categories[idx]] = [categories[idx], categories[idx+1]]; saveData(); }
         function submitGear() { const n = document.getElementById('f-name').value.trim(); if (!n) return; const item = { id: editingId || Date.now().toString(), name: n, weight: parseFloat(document.getElementById('f-weight').value)||0, category: document.getElementById('f-cat').value, desc: document.getElementById('f-desc').value.trim() }; if (editingId) gear = gear.map(g => g.id === editingId ? item : g); else gear.push(item); currentView = 'list'; saveData(); }
         function submitTrip() { const trip = { ...tempFormData, id: editingId || Date.now().toString(), name: (tempFormData.name||'未命名').trim(), days: parseInt(tempFormData.days)||1, startDate: tempFormData.startDate }; if (editingId) trips = trips.map(t => t.id === editingId ? trip : t); else trips.unshift(trip); currentView = 'list'; saveData(); }
-        
         function toggleGearStatus(itemId, status) {
             const c = document.querySelector('.overflow-y-auto'); const s = c ? c.scrollTop : 0;
             if (!tempFormData.selectedGear) tempFormData.selectedGear = {};
@@ -237,7 +206,6 @@
             renderTripForm(document.getElementById('view-container'));
             requestAnimationFrame(() => { const nc = document.querySelector('.overflow-y-auto'); if(nc) nc.scrollTop = s; });
         }
-
         function triggerDelete(type, id) {
             const btn = document.getElementById('confirm-delete-btn');
             document.getElementById('modal-delete').classList.remove('hide');
@@ -247,7 +215,6 @@
                 currentView = 'list'; closeModal('modal-delete'); saveData();
             };
         }
-
         function exportCSV() {
             let rows = ["TYPE,id,name,weight,category,desc,days,startDate,selectedGear"];
             categories.forEach(c => rows.push(`CAT,${c.id},"${c.name}",,,,,,`));
@@ -259,7 +226,6 @@
             const b = new Blob(["\ufeff" + rows.join("\n")], { type: "text/csv;charset=utf-8;" });
             const u = URL.createObjectURL(b); const a = document.createElement("a"); a.href = u; a.download = "ultragear_pro_backup.csv"; a.click();
         }
-
         let pendingImportFile = null;
         function prepareImport(event) { pendingImportFile = event.target.files[0]; if(pendingImportFile) document.getElementById('modal-import').classList.remove('hide'); }
         function handleImportMode(mode) {
