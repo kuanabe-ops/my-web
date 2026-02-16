@@ -34,12 +34,12 @@
     </div>
 
     <div id="modal-delete" class="fixed inset-0 bg-neutral-900/40 backdrop-blur-sm z-[100] flex items-end p-6 hide">
-        <div class="bg-white w-full p-6 rounded-3xl">
+        <div class="bg-white w-full p-6 rounded-3xl animate-in">
             <h3 class="text-lg font-medium mb-2">確定刪除？</h3>
             <p class="text-sm text-neutral-400 font-light mb-8">此動作無法復原，裝備或行程將永久移除。</p>
             <div class="grid grid-cols-2 gap-3">
-                <button onclick="closeModal('modal-delete')" class="bg-neutral-100 text-neutral-600 px-4 py-3 rounded-xl">取消</button>
-                <button id="confirm-delete-btn" class="bg-red-50 text-red-500 px-4 py-3 rounded-xl">確定刪除</button>
+                <button onclick="closeModal('modal-delete')" class="bg-neutral-100 text-neutral-600 px-4 py-3 rounded-xl active:scale-95 transition-transform font-medium">取消</button>
+                <button id="confirm-delete-btn" class="bg-red-50 text-red-500 px-4 py-3 rounded-xl active:scale-95 transition-transform font-medium">確定刪除</button>
             </div>
         </div>
     </div>
@@ -50,8 +50,8 @@
         let categories = JSON.parse(localStorage.getItem('ultra_cats') || '[{"id":"c1","name":"睡眠系統"},{"id":"c2","name":"背負系統"},{"id":"c3","name":"炊具飲食"}]');
         let trips = JSON.parse(localStorage.getItem('ultra_trips') || '[]');
         
-        let activeTab = 'gear'; // 'gear' | 'trips'
-        let currentView = 'list'; // 'list' | 'gear-form' | 'trip-form' | 'cat-manager'
+        let activeTab = 'gear'; 
+        let currentView = 'list'; 
         let editingId = null;
         let tempFormData = {};
         const COLORS = ['#171717', '#404040', '#737373', '#a3a3a3', '#d4d4d4', '#e5e5e5'];
@@ -86,9 +86,10 @@
 
         function switchTab(tab) {
             activeTab = tab;
+            render();
+            // 更新導覽列樣式
             const gearBtn = document.getElementById('nav-gear');
             const tripsBtn = document.getElementById('nav-trips');
-            
             if (tab === 'gear') {
                 gearBtn.className = "flex flex-col items-center gap-1 w-1/2 text-neutral-900";
                 tripsBtn.className = "flex flex-col items-center gap-1 w-1/2 text-neutral-300";
@@ -96,7 +97,6 @@
                 tripsBtn.className = "flex flex-col items-center gap-1 w-1/2 text-neutral-900";
                 gearBtn.className = "flex flex-col items-center gap-1 w-1/2 text-neutral-300";
             }
-            render();
         }
 
         // --- 渲染：主列表 ---
@@ -115,21 +115,20 @@
                     [...categories, {id:'', name:'未分類'}].forEach(cat => {
                         const items = gear.filter(g => (g.category || '') === (cat.id || ''));
                         if (items.length === 0) return;
-                        html += `<h3 class="text-[10px] uppercase tracking-[0.2em] text-neutral-400 border-b border-neutral-100 pb-2 mb-4 mt-8">${cat.name}</h3>`;
+                        html += `<h3 class="text-[10px] uppercase tracking-[0.2em] text-neutral-400 border-b border-neutral-100 pb-2 mb-4 mt-8 font-semibold">${cat.name}</h3>`;
                         items.forEach(item => {
                             html += `
-                                <div onclick="editGear('${item.id}')" class="flex justify-between items-center py-4 border-b border-neutral-50 active:bg-neutral-50">
+                                <div onclick="editGear('${item.id}')" class="flex justify-between items-center py-4 border-b border-neutral-50 active:bg-neutral-50 px-1">
                                     <div>
                                         <div class="text-sm font-medium">${item.name}</div>
                                         <div class="text-[10px] text-neutral-400 font-light">${item.desc || ''}</div>
                                     </div>
-                                    <div class="text-xs text-neutral-400">${item.weight}g</div>
+                                    <div class="text-xs text-neutral-400 font-medium">${item.weight}g</div>
                                 </div>`;
                         });
                     });
                 }
             } else {
-                // 行程列表
                 html += `<div class="space-y-4 pt-6">`;
                 if (trips.length === 0) {
                     html += `<div class="h-96 flex flex-col items-center justify-center text-neutral-200 font-light italic">開始規劃旅程</div>`;
@@ -137,15 +136,15 @@
                     trips.forEach(trip => {
                         const stats = getTripStats(trip);
                         html += `
-                            <div onclick="editTrip('${trip.id}')" class="p-5 border border-neutral-100 rounded-2xl shadow-sm active:scale-95 transition-transform bg-white">
+                            <div onclick="editTrip('${trip.id}')" class="p-5 border border-neutral-100 rounded-2xl shadow-sm active:scale-[0.98] transition-all bg-white">
                                 <div class="flex justify-between items-start mb-4">
                                     <h3 class="font-medium">${trip.name}</h3>
                                     <span class="text-[10px] text-neutral-300">${new Date(trip.createdAt).toLocaleDateString()}</span>
                                 </div>
                                 <div class="flex justify-between items-end">
                                     <div class="flex gap-6">
-                                        <div class="text-xs text-neutral-400">天數 <span class="text-neutral-900 ml-1">${trip.days || 0}</span></div>
-                                        <div class="text-xs text-neutral-400">總重 <span class="text-neutral-900 ml-1">${(stats.total/1000).toFixed(2)}kg</span></div>
+                                        <div class="text-xs text-neutral-400">天數 <span class="text-neutral-900 font-medium ml-1">${trip.days || 0}</span></div>
+                                        <div class="text-xs text-neutral-400">總重 <span class="text-neutral-900 font-medium ml-1">${(stats.total/1000).toFixed(2)}kg</span></div>
                                     </div>
                                     <svg class="text-neutral-200" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>
                                 </div>
@@ -155,7 +154,6 @@
                 html += `</div>`;
             }
 
-            // 懸浮按鈕
             html += `
                 <button onclick="addNewItem()" class="fixed bottom-24 right-6 w-14 h-14 bg-neutral-900 text-white rounded-full shadow-2xl flex items-center justify-center active:scale-90 transition-transform z-20">
                     <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -175,7 +173,7 @@
                     <div class="space-y-6">
                         <div class="space-y-1">
                             <label class="text-[10px] uppercase tracking-widest text-neutral-400 ml-1">裝備名稱</label>
-                            <input id="f-name" class="w-full bg-neutral-50 p-4 rounded-xl outline-none" value="${tempFormData.name || ''}">
+                            <input id="f-name" class="w-full bg-neutral-50 p-4 rounded-xl outline-none focus:ring-1 focus:ring-neutral-200" value="${tempFormData.name || ''}">
                         </div>
                         <div class="grid grid-cols-2 gap-4">
                             <div class="space-y-1">
@@ -196,13 +194,13 @@
                         </div>
                         <div class="pt-8 space-y-3">
                             <button onclick="submitGear()" class="w-full py-4 bg-neutral-900 text-white rounded-xl flex items-center justify-center gap-2 shadow-sm active:scale-95 transition-all">儲存裝備</button>
-                            ${isEdit ? `<button onclick="triggerDelete('gear', '${editingId}')" class="w-full py-4 bg-transparent text-red-400 flex items-center justify-center gap-2">刪除裝備</button>` : ''}
+                            ${isEdit ? `<button onclick="triggerDelete('gear', '${editingId}')" class="w-full py-4 bg-transparent text-red-400 flex items-center justify-center gap-2 active:opacity-60 transition-opacity font-medium">刪除裝備</button>` : ''}
                         </div>
                     </div>
                 </div>`;
         }
 
-        // --- 渲染：行程規劃表單 ---
+        // --- 渲染：行程規劃表單 (含已修正的刪除按鈕) ---
         function renderTripForm(container) {
             const stats = getTripStats(tempFormData);
             let html = `
@@ -210,34 +208,43 @@
                     <div class="p-4 border-b flex justify-between items-center sticky top-0 bg-white/90 backdrop-blur z-10">
                         <button onclick="currentView='list'; render()" class="text-neutral-400 p-2"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
                         <div class="text-sm font-medium text-neutral-500">${(stats.total/1000).toFixed(2)} kg</div>
-                        <button onclick="submitTrip()" class="h-9 px-6 bg-neutral-900 text-white rounded-full text-xs">完成</button>
+                        <div class="flex items-center gap-2">
+                            ${editingId ? `
+                                <button onclick="triggerDelete('trip', '${editingId}')" 
+                                    class="h-9 px-4 bg-red-50 text-red-500 rounded-full text-xs font-medium active:scale-95 transition-transform">
+                                    刪除
+                                </button>` : ''}
+                            <button onclick="submitTrip()" 
+                                class="h-9 px-6 bg-neutral-900 text-white rounded-full text-xs font-medium active:scale-95 transition-transform">
+                                完成
+                            </button>
+                        </div>
                     </div>
                     <div class="flex-1 overflow-y-auto p-6 pb-24">
                         <input id="t-name" class="text-2xl font-light w-full outline-none mb-2" placeholder="旅程名稱..." value="${tempFormData.name || ''}">
                         <div class="flex items-center gap-2 mb-8">
                             <input id="t-days" type="number" class="w-12 border-b text-center outline-none" value="${tempFormData.days || ''}">
-                            <span class="text-neutral-400 text-sm">天數</span>
+                            <span class="text-neutral-400 text-sm font-light">天數</span>
                         </div>`;
 
-            // SVG 圓餅圖
             if (stats.total > 0) {
                 html += `<div class="mb-10 flex flex-col items-center">
                     <div class="h-40 w-40 relative mb-6">
                         <svg viewBox="0 0 36 36" class="w-full h-full transform -rotate-90">
                             ${generatePieSVG(stats.pieData)}
                         </svg>
-                        <div class="absolute inset-0 flex items-center justify-center text-[10px] text-neutral-400">比例</div>
+                        <div class="absolute inset-0 flex items-center justify-center text-[10px] text-neutral-400 font-medium">比例</div>
                     </div>
                     <div class="w-full space-y-2">
                         ${stats.pieData.map((d, i) => `
                             <div class="flex justify-between text-xs items-center">
                                 <div class="flex items-center gap-2">
                                     <div class="w-1.5 h-1.5 rounded-full" style="background-color: ${COLORS[i % COLORS.length]}"></div>
-                                    <span class="text-neutral-500">${d.name}</span>
+                                    <span class="text-neutral-500 font-medium">${d.name}</span>
                                 </div>
                                 <div class="flex gap-4">
-                                    <span class="text-neutral-300">${d.percent}%</span>
-                                    <span class="text-neutral-800 w-12 text-right">${d.value}g</span>
+                                    <span class="text-neutral-300 font-light">${d.percent}%</span>
+                                    <span class="text-neutral-800 w-12 text-right font-medium">${d.value}g</span>
                                 </div>
                             </div>
                         `).join('')}
@@ -245,25 +252,24 @@
                 </div>`;
             }
 
-            // 裝備選取清單
             html += `<div class="space-y-8 mt-10">`;
             [...categories, {id:'', name:'未分類'}].forEach(cat => {
                 const items = gear.filter(g => (g.category || '') === (cat.id || ''));
                 if (items.length === 0) return;
-                html += `<div><div class="text-[10px] uppercase tracking-widest text-neutral-300 mb-4 border-b pb-1">${cat.name}</div>`;
+                html += `<div><div class="text-[10px] uppercase tracking-widest text-neutral-300 mb-4 border-b pb-1 font-bold">${cat.name}</div>`;
                 items.forEach(item => {
                     const status = (tempFormData.selectedGear || {})[item.id];
                     html += `
                         <div class="flex items-center justify-between py-3">
-                            <div class="flex-1 ${status === 'leave' ? 'opacity-20 line-through' : status === 'take' ? 'opacity-100' : 'opacity-50'}">
+                            <div class="flex-1 ${status === 'leave' ? 'opacity-20 line-through' : status === 'take' ? 'opacity-100' : 'opacity-50'} transition-opacity">
                                 <div class="text-sm font-medium">${item.name}</div>
                                 <div class="text-[10px] text-neutral-400">${item.weight}g</div>
                             </div>
                             <div class="flex gap-2">
-                                <button onclick="toggleGearStatus('${item.id}', 'leave')" class="w-9 h-9 rounded-full flex items-center justify-center transition-colors ${status === 'leave' ? 'bg-neutral-200 text-neutral-600' : 'bg-neutral-50 text-neutral-300'}">
+                                <button onclick="toggleGearStatus('${item.id}', 'leave')" class="w-9 h-9 rounded-full flex items-center justify-center transition-colors ${status === 'leave' ? 'bg-neutral-200 text-neutral-600' : 'bg-neutral-50 text-neutral-300'} active:scale-90">
                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
                                 </button>
-                                <button onclick="toggleGearStatus('${item.id}', 'take')" class="w-9 h-9 rounded-full flex items-center justify-center transition-colors shadow-sm ${status === 'take' ? 'bg-neutral-900 text-white' : 'bg-neutral-50 text-neutral-300'}">
+                                <button onclick="toggleGearStatus('${item.id}', 'take')" class="w-9 h-9 rounded-full flex items-center justify-center transition-colors shadow-sm ${status === 'take' ? 'bg-neutral-900 text-white' : 'bg-neutral-50 text-neutral-300'} active:scale-90">
                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>
                                 </button>
                             </div>
@@ -285,8 +291,8 @@
                     <div class="space-y-4 mb-10" id="cat-list">
                         ${categories.map(cat => `
                             <div class="flex gap-2">
-                                <input class="flex-1 bg-neutral-50 px-4 py-3 rounded-xl outline-none text-sm" value="${cat.name}" onchange="updateCatName('${cat.id}', this.value)">
-                                <button onclick="deleteCat('${cat.id}')" class="p-3 text-neutral-300 hover:text-red-400"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg></button>
+                                <input class="flex-1 bg-neutral-50 px-4 py-3 rounded-xl outline-none text-sm focus:ring-1 focus:ring-neutral-100" value="${cat.name}" onchange="updateCatName('${cat.id}', this.value)">
+                                <button onclick="deleteCat('${cat.id}')" class="p-3 text-neutral-300 hover:text-red-400 transition-colors"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg></button>
                             </div>
                         `).join('')}
                     </div>
@@ -294,7 +300,7 @@
                         <label class="text-[10px] uppercase tracking-widest text-neutral-400 ml-1">新增分類</label>
                         <div class="flex gap-2">
                             <input id="new-cat-name" class="flex-1 bg-neutral-50 px-4 py-3 rounded-xl outline-none" placeholder="分類名稱...">
-                            <button onclick="addCat()" class="bg-neutral-900 text-white px-4 py-3 rounded-xl"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+                            <button onclick="addCat()" class="bg-neutral-900 text-white px-4 py-3 rounded-xl active:scale-95 transition-transform"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
                         </div>
                     </div>
                 </div>`;
@@ -323,14 +329,14 @@
         }
 
         function submitGear() {
-            const name = document.getElementById('f-name').value;
+            const name = document.getElementById('f-name').value.trim();
             if (!name) return;
             const item = {
                 id: editingId || Date.now().toString(),
                 name: name,
                 weight: parseFloat(document.getElementById('f-weight').value) || 0,
                 category: document.getElementById('f-cat').value,
-                desc: document.getElementById('f-desc').value
+                desc: document.getElementById('f-desc').value.trim()
             };
             if (editingId) {
                 gear = gear.map(g => g.id === editingId ? item : g);
@@ -342,15 +348,18 @@
         }
 
         function submitTrip() {
-            const name = document.getElementById('t-name').value;
+            const nameInput = document.getElementById('t-name');
+            const name = nameInput ? nameInput.value.trim() : tempFormData.name;
             if (!name) return;
+            
             const trip = {
                 ...tempFormData,
                 id: editingId || Date.now().toString(),
                 name: name,
-                days: document.getElementById('t-days').value,
+                days: document.getElementById('t-days') ? document.getElementById('t-days').value : tempFormData.days,
                 createdAt: tempFormData.createdAt || Date.now()
             };
+            
             if (editingId) {
                 trips = trips.map(t => t.id === editingId ? trip : t);
             } else {
@@ -386,7 +395,6 @@
             return { total, pieData };
         }
 
-        // --- 圖表生成 (SVG) ---
         function generatePieSVG(data) {
             let cumulativePercent = 0;
             return data.map((d, i) => {
@@ -410,22 +418,23 @@
             return [x, y];
         }
 
-        // --- 分類與彈窗 ---
         function addCat() {
-            const name = document.getElementById('new-cat-name').value;
+            const input = document.getElementById('new-cat-name');
+            const name = input.value.trim();
             if (!name) return;
             categories.push({ id: 'c' + Date.now(), name });
+            input.value = '';
             saveData();
         }
 
         function updateCatName(id, name) {
-            categories = categories.map(c => c.id === id ? {...c, name} : c);
+            categories = categories.map(c => c.id === id ? {...c, name: name.trim()} : c);
             saveData();
         }
 
         function deleteCat(id) {
             if (gear.some(g => g.category === id)) {
-                alert("此分類仍有裝備，請先更改裝備分類。");
+                alert("此分類仍有裝備，請先將裝備移至其他分類或刪除該裝備。");
                 return;
             }
             categories = categories.filter(c => c.id !== id);
@@ -438,7 +447,7 @@
             modal.classList.remove('hide');
             confirmBtn.onclick = () => {
                 if (type === 'gear') gear = gear.filter(g => g.id !== id);
-                else trips = trips.filter(t => t.id !== id);
+                else if (type === 'trip') trips = trips.filter(t => t.id !== id);
                 closeModal('modal-delete');
                 currentView = 'list';
                 saveData();
