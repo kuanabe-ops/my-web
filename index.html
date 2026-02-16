@@ -22,8 +22,11 @@
         circle { transition: stroke-dasharray 0.5s ease, stroke-dashoffset 0.5s ease; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        input[type="date"]::-webkit-inner-spin-button, 
-        input[type="date"]::-webkit-calendar-picker-indicator { display: block; opacity: 0.5; }
+        
+        /* 排序模式專用樣式 */
+        .sorting-active { background-color: #f9fafb; border: 2px dashed #e5e7eb !important; }
+        .selected-for-move { background-color: #111111 !important; color: white !important; transform: scale(1.02); z-index: 10; }
+        .selected-for-move input { color: white !important; }
     </style>
 </head>
 <body class="bg-white text-neutral-800">
@@ -72,6 +75,8 @@
         let categories = JSON.parse(localStorage.getItem('ultra_cats') || '[{"id":"c1","name":"睡眠系統"},{"id":"c2","name":"背負系統"},{"id":"c3","name":"炊具飲食"}]');
         let trips = JSON.parse(localStorage.getItem('ultra_trips') || '[]');
         let activeTab = 'gear', currentView = 'list', editingId = null, tempFormData = {}, tripSortMode = 'date', catSortMode = false;
+        let selectedCatId = null; // 用於排序模式選中項目
+        
         const COLORS = ["#111111", "#555555", "#888888", "#aaaaaa", "#cccccc", "#eeeeee"];
 
         function getDateRange(startDate, days){
@@ -101,7 +106,7 @@
         }
 
         function generatePieSVG(data){
-            const radius = 14, circum = 2 * Math.PI * radius; // 縮小半徑以對應增加的 stroke-width
+            const radius = 14, circum = 2 * Math.PI * radius;
             let offset = 0;
             return data.map((d, i) => {
                 const dash = d.percent * circum;
@@ -160,17 +165,57 @@
         function renderCatManager(container) {
             container.innerHTML = `
             <div class="p-6 pt-12 flex flex-col h-full animate-in">
-                <button onclick="currentView='list'; render()" class="mb-6 text-neutral-400 flex items-center gap-1 self-start"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg>返回</button>
-                <div class="flex justify-between items-center mb-6"><h2 class="text-xl font-semibold">分類管理</h2><button onclick="catSortMode=!catSortMode;render()" class="text-[10px] px-3 py-1 rounded-full ${catSortMode?'bg-neutral-900 text-white':'bg-neutral-100 text-neutral-500'}">排序</button></div>
+                <button onclick="currentView='list'; selectedCatId=null; render()" class="mb-6 text-neutral-400 flex items-center gap-1 self-start"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg>返回</button>
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-xl font-semibold">分類管理</h2>
+                    <button onclick="catSortMode=!catSortMode; selectedCatId=null; render()" class="text-[10px] px-4 py-1.5 rounded-full transition-all ${catSortMode?'bg-neutral-900 text-white shadow-lg scale-105':'bg-neutral-100 text-neutral-500'}">
+                        ${catSortMode ? '完成排序' : '排序'}
+                    </button>
+                </div>
+                ${catSortMode ? '<p class="text-[10px] text-neutral-400 mb-4 bg-neutral-50 p-2 rounded-lg italic">提示：先點擊一個分類選取，再點擊另一個分類即可對調位置。</p>' : ''}
                 <div class="flex-1 overflow-y-auto space-y-3 mb-6 no-scrollbar pr-1">
-                    ${categories.map(c => `<div class="flex items-center gap-2 bg-white border border-neutral-100 p-3 rounded-2xl shadow-sm">
-                        ${catSortMode ? `<div class="flex flex-col gap-0.5 pr-1"><button onclick="moveCatUp('${c.id}')" class="text-[10px] p-1 text-neutral-300 hover:text-neutral-900">▲</button><button onclick="moveCatDown('${c.id}')" class="text-[10px] p-1 text-neutral-300 hover:text-neutral-900">▼</button></div>` : ''}
-                        <input class="flex-1 outline-none text-sm font-medium bg-transparent" value="${c.name}" onchange="updateCatName('${c.id}',this.value)">
-                        <button onclick="deleteCategory('${c.id}')" class="p-2 text-neutral-300 hover:text-red-500 transition-colors"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+                    ${categories.map(c => `
+                    <div onclick="${catSortMode ? `handleCatReorder('${c.id}')` : ''}" 
+                         class="flex items-center gap-3 bg-white border border-neutral-100 p-4 rounded-2xl shadow-sm transition-all duration-200 
+                         ${catSortMode ? 'sorting-active cursor-pointer active:scale-[0.98]' : ''} 
+                         ${selectedCatId === c.id ? 'selected-for-move' : ''}">
+                        
+                        ${catSortMode ? `<div class="text-neutral-300"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 9h14M5 15h14"/></svg></div>` : ''}
+                        
+                        <input class="flex-1 outline-none text-sm font-medium bg-transparent pointer-events-${catSortMode?'none':'auto'}" 
+                               value="${c.name}" 
+                               onchange="updateCatName('${c.id}',this.value)" 
+                               ${catSortMode ? 'disabled' : ''}>
+                        
+                        ${!catSortMode ? `
+                        <button onclick="deleteCategory('${c.id}')" class="p-2 text-neutral-300 hover:text-red-500 transition-colors">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                        </button>` : ''}
                     </div>`).join('')}
                 </div>
-                <div class="flex gap-2 pb-10"><input id="new-cat-name" class="flex-1 bg-neutral-50 px-5 py-4 rounded-2xl outline-none text-sm border border-transparent focus:border-neutral-200" placeholder="新分類名稱..."><button onclick="addCat()" class="w-14 h-14 bg-neutral-900 text-white rounded-2xl flex items-center justify-center text-2xl font-light shadow-lg">＋</button></div>
+                ${!catSortMode ? `
+                <div class="flex gap-2 pb-10">
+                    <input id="new-cat-name" class="flex-1 bg-neutral-50 px-5 py-4 rounded-2xl outline-none text-sm border border-transparent focus:border-neutral-200" placeholder="新分類名稱...">
+                    <button onclick="addCat()" class="w-14 h-14 bg-neutral-900 text-white rounded-2xl flex items-center justify-center text-2xl font-light shadow-lg active:scale-95">＋</button>
+                </div>` : ''}
             </div>`;
+        }
+
+        // 核心排序邏輯
+        function handleCatReorder(id) {
+            if (!selectedCatId) {
+                selectedCatId = id; // 第一步：選中
+            } else if (selectedCatId === id) {
+                selectedCatId = null; // 再次點擊自己則取消
+            } else {
+                // 第二步：對調位置
+                const idx1 = categories.findIndex(c => c.id === selectedCatId);
+                const idx2 = categories.findIndex(c => c.id === id);
+                [categories[idx1], categories[idx2]] = [categories[idx2], categories[idx1]];
+                selectedCatId = null; // 清除選取
+                saveData(); // 儲存並重繪
+            }
+            render(); 
         }
 
         function renderTripForm(container) {
@@ -208,8 +253,6 @@
         function updateCatName(id, name) { categories = categories.map(c=>c.id===id?{...c, name:name.trim()}:c); saveData(); }
         function deleteCategory(id) { if(!confirm("確定刪除分類？")) return; categories = categories.filter(c => c.id !== id); gear = gear.map(g=>g.category===id?{...g,category:''}:g); saveData(); }
         function addCat() { const n = document.getElementById('new-cat-name').value.trim(); if (!n) return; categories.push({id:'c'+Date.now(), name:n}); saveData(); }
-        function moveCatUp(id){ const idx = categories.findIndex(c=>c.id===id); if(idx<=0) return; [categories[idx-1], categories[idx]] = [categories[idx], categories[idx-1]]; saveData(); }
-        function moveCatDown(id){ const idx = categories.findIndex(c=>c.id===id); if(idx===-1 || idx===categories.length-1) return; [categories[idx+1], categories[idx]] = [categories[idx], categories[idx+1]]; saveData(); }
         function submitGear() { const n = document.getElementById('f-name').value.trim(); if (!n) return; const item = { id: editingId || Date.now().toString(), name: n, weight: parseFloat(document.getElementById('f-weight').value)||0, category: document.getElementById('f-cat').value, desc: document.getElementById('f-desc').value.trim() }; if (editingId) gear = gear.map(g => g.id === editingId ? item : g); else gear.push(item); currentView = 'list'; saveData(); }
         function submitTrip() { const trip = { ...tempFormData, id: editingId || Date.now().toString(), name: (tempFormData.name||'未命名').trim(), days: parseInt(tempFormData.days)||1, startDate: tempFormData.startDate }; if (editingId) trips = trips.map(t => t.id === editingId ? trip : t); else trips.unshift(trip); currentView = 'list'; saveData(); }
         function toggleGearStatus(itemId, status) {
