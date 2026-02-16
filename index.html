@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Ultra Gear Pro - Master Stable</title>
+    <title>Ultra Gear Pro - Enterprise Edition</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
@@ -48,74 +48,32 @@
     <div id="modal-import" class="fixed inset-0 bg-neutral-900/40 backdrop-blur-sm z-[120] flex items-end p-6 hide">
         <div class="bg-white w-full p-6 rounded-3xl animate-in shadow-2xl">
             <h3 class="text-lg font-medium mb-6">匯入模式</h3>
-            <div class="space-y-3 text-center">
-                <button onclick="handleImportMode('overwrite')" class="w-full py-4 bg-neutral-900 text-white rounded-xl font-medium">覆蓋（清空舊資料）</button>
-                <button onclick="handleImportMode('append')" class="w-full py-4 bg-neutral-100 text-neutral-700 rounded-xl font-medium">附加（保留舊資料）</button>
-                <button onclick="closeModal('modal-import')" class="w-full py-4 text-neutral-400 font-medium">取消</button>
+            <div class="space-y-3">
+                <button onclick="handleImportMode('overwrite')" class="w-full py-4 bg-neutral-900 text-white rounded-xl font-medium">覆蓋（清空現有資料）</button>
+                <button onclick="handleImportMode('append')" class="w-full py-4 bg-neutral-100 text-neutral-700 rounded-xl font-medium">附加（保留現有資料）</button>
+                <button onclick="closeModal('modal-import')" class="w-full py-4 text-neutral-400 font-medium text-center">取消</button>
             </div>
         </div>
     </div>
 
     <script>
-        // --- 核心資料 ---
+        // --- DATA ---
         let gear = JSON.parse(localStorage.getItem('ultra_gear') || '[]');
         let categories = JSON.parse(localStorage.getItem('ultra_cats') || '[{"id":"c1","name":"睡眠系統"},{"id":"c2","name":"背負系統"},{"id":"c3","name":"炊具飲食"}]');
         let trips = JSON.parse(localStorage.getItem('ultra_trips') || '[]');
-        let activeTab = 'gear', currentView = 'list', editingId = null, tempFormData = {}, tripSortMode = 'date';
+        let activeTab = 'gear', currentView = 'list', editingId = null, tempFormData = {}, tripSortMode = 'date', catSortMode = false;
         const COLORS = ["#111111", "#555555", "#888888", "#aaaaaa", "#cccccc", "#eeeeee"];
 
-        // --- 修正 1: 完美 CSV 匯出（處理 JSON 勾選狀態與雙引號） ---
-        function exportCSV() {
-            let rows = ["TYPE,id,name,weight,category,desc,days,startDate,selectedGear"];
-            categories.forEach(c => rows.push(`CAT,${c.id},"${c.name}",,,,,,`));
-            gear.forEach(g => rows.push(`GEAR,${g.id},"${g.name}",${g.weight},${g.category},"${g.desc}",,,`));
-            trips.forEach(t => {
-                const selected = JSON.stringify(t.selectedGear || {});
-                // 使用 CSV 標準：將內部雙引號替換為兩個雙引號
-                rows.push(`TRIP,${t.id},"${t.name}",,,,${t.days},${t.startDate},"${selected.replace(/"/g,'""')}"`);
-            });
-            const blob = new Blob(["\ufeff" + rows.join("\n")], { type: "text/csv;charset=utf-8;" });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement("a");
-            a.href = url; a.download = `ultragear_pro_backup.csv`; a.click();
+        // --- HELPERS ---
+        function getDateRange(startDate, days){
+            if(!startDate) return '未定日期';
+            const start = new Date(startDate);
+            const end = new Date(start);
+            end.setDate(start.getDate() + (parseInt(days)||1) - 1);
+            const format = d => d.toISOString().split('T')[0];
+            return format(start) === format(end) ? format(start) : `${format(start)} ~ ${format(end)}`;
         }
 
-        // --- 修正 3: 刪除後的邏輯流動 ---
-        function triggerDelete(type, id) {
-            const modal = document.getElementById('modal-delete');
-            const btn = document.getElementById('confirm-delete-btn');
-            modal.classList.remove('hide');
-            btn.onclick = function() {
-                if(type === 'gear') gear = gear.filter(g => g.id !== id);
-                if(type === 'trip') trips = trips.filter(t => t.id !== id);
-                currentView = 'list';
-                closeModal('modal-delete');
-                saveData(); // saveData 內含 render()
-            };
-        }
-
-        // --- 修正 4: 勾選不跳頂部 (Scroll Restoration) ---
-        function toggleGearStatus(itemId, status) {
-            const container = document.querySelector('.overflow-y-auto');
-            const scrollTop = container ? container.scrollTop : 0;
-
-            if (!tempFormData.selectedGear) tempFormData.selectedGear = {};
-            if (tempFormData.selectedGear[itemId] === status) {
-                delete tempFormData.selectedGear[itemId];
-            } else {
-                tempFormData.selectedGear[itemId] = status;
-            }
-
-            renderTripForm(document.getElementById('view-container'));
-
-            // 還原滾動位置
-            requestAnimationFrame(() => {
-                const newContainer = document.querySelector('.overflow-y-auto');
-                if(newContainer) newContainer.scrollTop = scrollTop;
-            });
-        }
-
-        // --- 基礎邏輯與統計 ---
         function getTripStats(data) {
             const sel = data.selectedGear || {};
             let total = 0; const cats = {};
@@ -139,69 +97,87 @@
             }).join('');
         }
 
-        // --- CSV 匯入解析 ---
+        // --- CORE LOGIC ---
+        function toggleGearStatus(itemId, status) {
+            const container = document.querySelector('.overflow-y-auto');
+            const scrollTop = container ? container.scrollTop : 0;
+            if (!tempFormData.selectedGear) tempFormData.selectedGear = {};
+            if (tempFormData.selectedGear[itemId] === status) delete tempFormData.selectedGear[itemId];
+            else tempFormData.selectedGear[itemId] = status;
+            renderTripForm(document.getElementById('view-container'));
+            requestAnimationFrame(() => { 
+                const newC = document.querySelector('.overflow-y-auto');
+                if(newC) newC.scrollTop = scrollTop;
+            });
+        }
+
+        function triggerDelete(type, id) {
+            const modal = document.getElementById('modal-delete');
+            const btn = document.getElementById('confirm-delete-btn');
+            modal.classList.remove('hide');
+            btn.onclick = function() {
+                if(type === 'gear') gear = gear.filter(g => g.id !== id);
+                if(type === 'trip') trips = trips.filter(t => t.id !== id);
+                currentView = 'list'; closeModal('modal-delete'); saveData();
+            };
+        }
+
+        // --- CSV ENGINE ---
+        function exportCSV() {
+            let rows = ["TYPE,id,name,weight,category,desc,days,startDate,selectedGear"];
+            categories.forEach(c => rows.push(`CAT,${c.id},"${c.name}",,,,,,`));
+            gear.forEach(g => rows.push(`GEAR,${g.id},"${g.name}",${g.weight},${g.category},"${g.desc}",,,`));
+            trips.forEach(t => {
+                const selected = JSON.stringify(t.selectedGear || {});
+                rows.push(`TRIP,${t.id},"${t.name}",,,,${t.days},${t.startDate},"${selected.replace(/"/g,'""')}"`);
+            });
+            const blob = new Blob(["\ufeff" + rows.join("\n")], { type: "text/csv;charset=utf-8;" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a"); a.href = url; a.download = "ultragear_pro_backup.csv"; a.click();
+        }
+
+        let pendingImportFile = null;
         function prepareImport(event) {
-            const file = event.target.files[0]; if(!file) return;
-            pendingImportFile = file; document.getElementById('modal-import').classList.remove('hide');
+            pendingImportFile = event.target.files[0];
+            if(pendingImportFile) document.getElementById('modal-import').classList.remove('hide');
         }
 
         function handleImportMode(mode) {
-            closeModal('modal-import'); if(!pendingImportFile) return;
+            closeModal('modal-import');
+            if(!pendingImportFile) return;
             const reader = new FileReader();
             reader.onload = function(e) {
-                const lines = e.target.result.split('\n').slice(1);
-                let newGear = [], newCats = [], newTrips = [];
+                const text = e.target.result.replace(/^\uFEFF/, '');
+                const lines = text.split(/\r?\n/).slice(1);
+                let newG = [], newC = [], newT = [];
                 lines.forEach(line => {
-                    const cols = line.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g)?.map(c => c.trim().replace(/^"|"$/g, '')) || [];
-                    if(!cols[0]) return;
-                    if(cols[0] === 'CAT') newCats.push({ id: cols[1], name: cols[2] });
-                    if(cols[0] === 'GEAR') newGear.push({ id: cols[1], name: cols[2], weight: parseFloat(cols[3])||0, category: cols[4], desc: cols[5]||'' });
-                    if(cols[0] === 'TRIP') {
-                        let selected = {};
-                        try { selected = JSON.parse((cols[8] || '{}').replace(/""/g,'"')); } catch(err) { selected = {}; }
-                        newTrips.push({ id: cols[1], name: cols[2], days: parseInt(cols[6])||1, startDate: cols[7], selectedGear: selected });
+                    if(!line.trim()) return;
+                    // 高級 CSV 解析：處理引號內的逗號與轉義引號
+                    const cols = line.split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/).map(c => c.trim().replace(/^"|"$/g,'').replace(/""/g,'"'));
+                    if(cols[0]==='CAT') newC.push({ id: cols[1], name: cols[2] });
+                    if(cols[0]==='GEAR') newG.push({ id: cols[1], name: cols[2], weight: parseFloat(cols[3])||0, category: cols[4], desc: cols[5]||'' });
+                    if(cols[0]==='TRIP') {
+                        let sel = {}; try { sel = JSON.parse(cols[8]||'{}'); } catch(err) { sel = {}; }
+                        newT.push({ id: cols[1], name: cols[2], days: parseInt(cols[6])||1, startDate: cols[7], selectedGear: sel });
                     }
                 });
-                if(mode === 'overwrite') { gear = newGear; categories = newCats.length ? newCats : categories; trips = newTrips; }
-                else { gear = [...gear, ...newGear]; newCats.forEach(nc => { if(!categories.find(c => c.id === nc.id)) categories.push(nc); }); trips = [...trips, ...newTrips]; }
-                saveData(); alert('匯入成功');
+                if(mode==='overwrite') { gear = newG; categories = newC.length?newC:categories; trips = newT; }
+                else { gear = [...gear,...newG]; newC.forEach(nc => { if(!categories.find(c=>c.id===nc.id)) categories.push(nc); }); trips = [...trips,...newT]; }
+                saveData(); alert('匯入完成');
             };
             reader.readAsText(pendingImportFile);
         }
 
-        // --- UI 操作 ---
-        function switchTab(tab) {
-            activeTab = tab; currentView = 'list';
-            render();
-        }
-
-        function saveData() { 
-            localStorage.setItem('ultra_gear', JSON.stringify(gear)); 
-            localStorage.setItem('ultra_cats', JSON.stringify(categories)); 
-            localStorage.setItem('ultra_trips', JSON.stringify(trips)); 
-            render(); 
-        }
-
+        // --- VIEWS ---
+        function switchTab(tab) { activeTab = tab; currentView = 'list'; render(); }
+        function saveData() { localStorage.setItem('ultra_gear', JSON.stringify(gear)); localStorage.setItem('ultra_cats', JSON.stringify(categories)); localStorage.setItem('ultra_trips', JSON.stringify(trips)); render(); }
         function closeModal(id) { document.getElementById(id).classList.add('hide'); }
-        function moveCatUp(id){
-            const idx = categories.findIndex(c=>c.id===id); if(idx<=0) return;
-            [categories[idx-1], categories[idx]] = [categories[idx], categories[idx-1]]; saveData();
-        }
-        function moveCatDown(id){
-            const idx = categories.findIndex(c=>c.id===id); if(idx===-1 || idx===categories.length-1) return;
-            [categories[idx+1], categories[idx]] = [categories[idx], categories[idx+1]]; saveData();
-        }
+        function moveCatUp(id){ const idx = categories.findIndex(c=>c.id===id); if(idx<=0) return; [categories[idx-1], categories[idx]] = [categories[idx], categories[idx-1]]; saveData(); }
+        function moveCatDown(id){ const idx = categories.findIndex(c=>c.id===id); if(idx===-1 || idx===categories.length-1) return; [categories[idx+1], categories[idx]] = [categories[idx], categories[idx+1]]; saveData(); }
 
-        // --- 視圖渲染 ---
         function render() {
             const container = document.getElementById('view-container');
-            const nav = document.getElementById('bottom-nav');
-            const gearBtn = document.getElementById('nav-gear'), tripBtn = document.getElementById('nav-trips');
-            
-            nav.classList.toggle('hide', currentView !== 'list');
-            if(activeTab === 'gear') { gearBtn.classList.replace('text-neutral-300', 'text-neutral-900'); tripBtn.classList.replace('text-neutral-900', 'text-neutral-300'); }
-            else { tripBtn.classList.replace('text-neutral-300', 'text-neutral-900'); gearBtn.classList.replace('text-neutral-900', 'text-neutral-300'); }
-
+            document.getElementById('bottom-nav').classList.toggle('hide', currentView !== 'list');
             if (currentView === 'list') renderListView(container);
             else if (currentView === 'gear-form') renderGearForm(container);
             else if (currentView === 'cat-manager') renderCatManager(container);
@@ -216,7 +192,7 @@
                     const items = gear.filter(g => (g.category||'') === (c.id||''));
                     if (items.length === 0) return;
                     html += `<h3 class="text-[10px] uppercase tracking-widest text-neutral-400 border-b pb-2 mb-4 mt-8 font-bold">${c.name}</h3>`;
-                    items.forEach(i => html += `<div onclick="editGear('${i.id}')" class="flex justify-between items-center py-4 border-b border-neutral-50 active:bg-neutral-50"><div><div class="text-sm font-medium">${i.name}</div><div class="text-[10px] text-neutral-400">${i.desc||''}</div></div><div class="text-xs font-medium text-neutral-400">${i.weight}g</div></div>`);
+                    items.forEach(i => html += `<div onclick="editGear('${i.id}')" class="flex justify-between items-center py-4 border-b border-neutral-50"><div><div class="text-sm font-medium">${i.name}</div><div class="text-[10px] text-neutral-400">${i.desc||''}</div></div><div class="text-xs font-medium text-neutral-400">${i.weight}g</div></div>`);
                 });
             } else {
                 html += `<div class="flex justify-between items-center mb-6"><h2 class="text-2xl font-semibold">行程規劃</h2><div class="flex bg-neutral-100 rounded-lg p-1"><button onclick="tripSortMode='date';render()" class="px-3 py-1 text-xs rounded-md ${tripSortMode==='date'?'bg-white shadow':'text-neutral-400'}">日期</button><button onclick="tripSortMode='weight';render()" class="px-3 py-1 text-xs rounded-md ${tripSortMode==='weight'?'bg-white shadow':'text-neutral-400'}">重量</button></div></div>`;
@@ -225,7 +201,7 @@
                 else sortedTrips.sort((a,b)=> getTripStats(b).total - getTripStats(a).total);
                 sortedTrips.forEach(t => {
                     const s = getTripStats(t);
-                    html += `<div onclick="editTrip('${t.id}')" class="p-5 border rounded-2xl shadow-sm bg-white mb-4 active:scale-[0.98] transition-all"><h3 class="font-medium mb-1">${t.name}</h3><span class="text-[10px] text-neutral-400 block mb-4">${t.startDate || '未定日期'}</span><div class="flex justify-between items-end"><div class="text-xs text-neutral-400">總重 <b class="text-neutral-800">${(s.total/1000).toFixed(2)}kg</b></div><svg class="text-neutral-200" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg></div></div>`;
+                    html += `<div onclick="editTrip('${t.id}')" class="p-5 border rounded-2xl shadow-sm bg-white mb-4 active:scale-[0.98] transition-all"><h3 class="font-medium mb-1">${t.name}</h3><span class="text-[10px] text-neutral-400 block mb-4">${getDateRange(t.startDate, t.days)}</span><div class="flex justify-between items-end"><div class="text-xs text-neutral-400">總重 <b class="text-neutral-800">${(s.total/1000).toFixed(2)}kg</b></div><svg class="text-neutral-200" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg></div></div>`;
                 });
             }
             html += `<button onclick="addNewItem()" class="fixed bottom-28 right-6 w-14 h-14 bg-neutral-900 text-white rounded-full shadow-2xl flex items-center justify-center active:scale-90 z-30"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button></div>`;
@@ -237,37 +213,55 @@
         }
 
         function renderCatManager(container) {
-            container.innerHTML = `<div class="p-6 pt-12 animate-in"><button onclick="currentView='list'; render()" class="mb-8 text-neutral-400">返回</button><div class="space-y-3 mb-10">${categories.map(c => `<div class="flex items-center gap-2 bg-white border p-3 rounded-xl"><div class="flex flex-col gap-1"><button onclick="moveCatUp('${c.id}')" class="text-[8px] px-1 bg-neutral-100 rounded">▲</button><button onclick="moveCatDown('${c.id}')" class="text-[8px] px-1 bg-neutral-100 rounded">▼</button></div><input class="flex-1 outline-none text-sm font-medium" value="${c.name}" onchange="updateCatName('${c.id}',this.value)"><button onclick="deleteCategory('${c.id}')" class="px-3 text-red-400 text-sm">刪</button></div>`).join('')}</div><div class="flex gap-2"><input id="new-cat-name" class="flex-1 bg-neutral-50 px-4 py-3 rounded-xl outline-none" placeholder="新分類名稱..."><button onclick="addCat()" class="bg-neutral-900 text-white px-5 rounded-xl font-medium">新增</button></div></div>`;
+            container.innerHTML = `<div class="p-6 pt-12 animate-in">
+                <button onclick="currentView='list'; render()" class="mb-6 text-neutral-400">返回</button>
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-lg font-semibold">分類管理</h2>
+                    <button onclick="catSortMode=!catSortMode;render()" class="text-[10px] px-3 py-1 rounded-full ${catSortMode?'bg-neutral-900 text-white':'bg-neutral-100 text-neutral-500'}">排序模式</button>
+                </div>
+                <div class="space-y-3 mb-10">${categories.map(c => `
+                    <div class="flex items-center gap-2 bg-white border p-3 rounded-xl">
+                        ${catSortMode ? `<div class="flex flex-col gap-1"><button onclick="moveCatUp('${c.id}')" class="text-[8px] px-1 bg-neutral-100 rounded">▲</button><button onclick="moveCatDown('${c.id}')" class="text-[8px] px-1 bg-neutral-100 rounded">▼</button></div>` : ''}
+                        <input class="flex-1 outline-none text-sm font-medium" value="${c.name}" onchange="updateCatName('${c.id}',this.value)">
+                        <button onclick="deleteCategory('${c.id}')" class="p-2 text-neutral-400 hover:text-red-500">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                        </button>
+                    </div>`).join('')}
+                </div>
+                <div class="flex gap-2"><input id="new-cat-name" class="flex-1 bg-neutral-50 px-4 py-3 rounded-xl outline-none" placeholder="新分類名稱..."><button onclick="addCat()" class="w-12 h-12 bg-neutral-900 text-white rounded-xl flex items-center justify-center text-2xl font-light">＋</button></div>
+            </div>`;
         }
 
-        // --- 修正 2: 行程編輯加入「刪除行程」按鈕 ---
         function renderTripForm(container) {
             const stats = getTripStats(tempFormData);
             container.innerHTML = `<div class="flex flex-col h-full bg-white animate-in">
-            <div class="p-4 border-b flex justify-between items-center">
-                <button onclick="currentView='list'; render()" class="text-neutral-400">關閉</button>
-                <div class="flex gap-3 items-center">
-                    ${editingId ? `<button onclick="triggerDelete('trip','${editingId}')" class="text-red-500 text-xs font-medium">刪除</button>` : ''}
-                    <button onclick="submitTrip()" class="px-6 py-2 bg-neutral-900 text-white rounded-full text-xs font-medium">儲存行程</button>
+                <div class="p-4 border-b flex justify-between items-center">
+                    <button onclick="currentView='list'; render()" class="text-neutral-400">關閉</button>
+                    <div class="flex gap-3 items-center">
+                        ${editingId ? `<button onclick="triggerDelete('trip','${editingId}')" class="text-red-500 text-xs">刪除</button>` : ''}
+                        <button onclick="submitTrip()" class="px-6 py-2 bg-neutral-900 text-white rounded-full text-xs font-medium">儲存行程</button>
+                    </div>
                 </div>
-            </div>
-            <div class="flex-1 overflow-y-auto p-6">
-                <input id="t-name" class="text-2xl font-semibold w-full outline-none mb-4" placeholder="行程名稱" value="${tempFormData.name||''}" oninput="tempFormData.name=this.value">
-                <div class="flex gap-4 mb-8">
-                    <div class="flex-1"><label class="text-[9px] uppercase font-bold text-neutral-400">日期</label><input id="t-date" type="date" class="w-full outline-none text-sm" value="${tempFormData.startDate||''}" oninput="tempFormData.startDate=this.value"></div>
-                    <div class="w-20"><label class="text-[9px] uppercase font-bold text-neutral-400">天數</label><input id="t-days" type="number" class="w-full outline-none text-sm" value="${tempFormData.days||1}" oninput="tempFormData.days=this.value"></div>
-                </div>
-                ${stats.total > 0 ? `<div class="mb-10 flex flex-col items-center"><div class="h-40 w-40 relative mb-4"><svg viewBox="0 0 36 36" class="w-full h-full transform -rotate-90">${generatePieSVG(stats.pieData)}</svg><div class="absolute inset-0 flex flex-col items-center justify-center"><div class="text-[9px] uppercase text-neutral-300 font-bold">Total</div><div class="text-lg font-bold">${(stats.total/1000).toFixed(2)}<span class="text-xs ml-0.5">kg</span></div></div></div><div class="w-full space-y-1">${stats.pieData.map((d,i)=>`<div class="flex justify-between text-[10px] items-center"><div class="flex items-center gap-2"><div class="w-2 h-2 rounded-full" style="background:${COLORS[i%COLORS.length]}"></div><span>${d.name}</span></div><div class="font-medium">${(d.percent*100).toFixed(1)}%</div></div>`).join('')}</div></div>` : ''}
-                <div class="space-y-4 border-t pt-6">${[...categories, {id:'', name:'未分類'}].map(c => {
-                    const items = gear.filter(g => (g.category||'') === (c.id||''));
-                    return items.length ? `<div class="mb-6"><div class="text-[10px] uppercase font-bold text-neutral-300 mb-2 border-b pb-1">${c.name}</div>${items.map(i => {
-                        const st = (tempFormData.selectedGear||{})[i.id];
-                        return `<div class="flex items-center justify-between py-3"><div class="${st==='leave'?'opacity-20':''}"><div class="text-sm font-medium">${i.name}</div><div class="text-[10px] text-neutral-400">${i.weight}g</div></div><div class="flex gap-2"><button onclick="toggleGearStatus('${i.id}','leave')" class="w-8 h-8 rounded-full flex items-center justify-center ${st==='leave'?'bg-neutral-200 text-white':'bg-neutral-50 text-neutral-300'}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button><button onclick="toggleGearStatus('${i.id}','take')" class="w-8 h-8 rounded-full flex items-center justify-center ${st==='take'?'bg-neutral-900 text-white':'bg-neutral-50 text-neutral-300'}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg></button></div></div>` }).join('')}</div>` : '';
-                }).join('')}</div>
-            </div></div>`;
+                <div class="flex-1 overflow-y-auto p-6">
+                    <input id="t-name" class="text-2xl font-semibold w-full outline-none mb-4" placeholder="行程名稱" value="${tempFormData.name||''}" oninput="tempFormData.name=this.value">
+                    <div class="flex gap-4 mb-2">
+                        <div class="flex-1"><label class="text-[9px] uppercase font-bold text-neutral-400">日期</label><input id="t-date" type="date" class="w-full outline-none text-sm" value="${tempFormData.startDate||''}" oninput="tempFormData.startDate=this.value"></div>
+                        <div class="w-20"><label class="text-[9px] uppercase font-bold text-neutral-400">天數</label><input id="t-days" type="number" class="w-full outline-none text-sm" value="${tempFormData.days||1}" oninput="tempFormData.days=this.value"></div>
+                    </div>
+                    <div class="text-[10px] text-neutral-400 mb-8">${getDateRange(tempFormData.startDate, tempFormData.days)}</div>
+                    ${stats.total > 0 ? `<div class="mb-10 flex flex-col items-center"><div class="h-40 w-40 relative mb-4"><svg viewBox="0 0 36 36" class="w-full h-full transform -rotate-90">${generatePieSVG(stats.pieData)}</svg><div class="absolute inset-0 flex flex-col items-center justify-center"><div class="text-[9px] uppercase text-neutral-300 font-bold">Total</div><div class="text-lg font-bold">${(stats.total/1000).toFixed(2)}<span class="text-xs ml-0.5">kg</span></div></div></div><div class="w-full space-y-1">${stats.pieData.map((d,i)=>`<div class="flex justify-between text-[10px] items-center"><div class="flex items-center gap-2"><div class="w-2 h-2 rounded-full" style="background:${COLORS[i%COLORS.length]}"></div><span>${d.name}</span></div><div class="font-medium">${(d.percent*100).toFixed(1)}%</div></div>`).join('')}</div></div>` : ''}
+                    <div class="space-y-4 border-t pt-6">${[...categories, {id:'', name:'未分類'}].map(c => {
+                        const items = gear.filter(g => (g.category||'') === (c.id||''));
+                        if (items.length === 0) return '';
+                        return `<div class="mb-6"><div class="text-[10px] uppercase font-bold text-neutral-300 mb-2 border-b pb-1">${c.name}</div>${items.map(i => {
+                            const st = (tempFormData.selectedGear||{})[i.id];
+                            return `<div class="flex items-center justify-between py-3"><div class="${st==='leave'?'opacity-20':''}"><div class="text-sm font-medium">${i.name}</div><div class="text-[10px] text-neutral-400">${i.weight}g</div></div><div class="flex gap-2"><button onclick="toggleGearStatus('${i.id}','leave')" class="w-8 h-8 rounded-full flex items-center justify-center ${st==='leave'?'bg-neutral-200 text-white':'bg-neutral-50 text-neutral-300'}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button><button onclick="toggleGearStatus('${i.id}','take')" class="w-8 h-8 rounded-full flex items-center justify-center ${st==='take'?'bg-neutral-900 text-white':'bg-neutral-50 text-neutral-300'}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg></button></div></div>`;
+                        }).join('')}</div>`;
+                    }).join('')}</div>
+                </div></div>`;
         }
 
-        // --- 表單提交 ---
+        // --- HANDLERS ---
         function addNewItem() { editingId = null; tempFormData = activeTab === 'gear' ? {} : { selectedGear: {}, startDate: new Date().toISOString().split('T')[0], days: 1 }; currentView = activeTab === 'gear' ? 'gear-form' : 'trip-form'; render(); }
         function editGear(id) { editingId = id; tempFormData = {...gear.find(g => g.id === id)}; currentView = 'gear-form'; render(); }
         function editTrip(id) { editingId = id; tempFormData = {...trips.find(t => t.id === id)}; currentView = 'trip-form'; render(); }
