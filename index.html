@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ultra Gear - 輕量化裝備管理</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
+        body { font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; }
+        .animate-in { animation: fadeIn 0.3s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .hide { display: none !important; }
+        select { -webkit-appearance: none; }
+        .pie-segment { transition: stroke-dasharray 0.5s ease; cursor: pointer; }
+        .pie-segment:hover { opacity: 0.8; }
+    </style>
+</head>
+<body class="bg-white text-neutral-800">
+
+    <div id="app" class="max-w-md mx-auto min-h-screen relative border-x border-neutral-50 shadow-sm">
+        <div id="view-container"></div>
+
+        <nav id="bottom-nav" class="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white/80 backdrop-blur-md border-t border-neutral-100 flex justify-around p-4 pb-8 z-20">
+            <button onclick="switchTab('gear')" id="nav-gear" class="flex flex-col items-center gap-1 w-1/2 text-neutral-900">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="7" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+                <span class="text-[9px] uppercase tracking-widest font-bold">裝備清單</span>
+            </button>
+            <button onclick="switchTab('trips')" id="nav-trips" class="flex flex-col items-center gap-1 w-1/2 text-neutral-300">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14.106 5.553a2 2 0 0 0 1.788 0l3.659-1.83A1 1 0 0 1 21 4.619v12.764a1 1 0 0 1-1.447.894l-3.659-1.83a2 2 0 0 0-1.788 0l-4.212 2.106a2 2 0 0 1-1.788 0l-3.659-1.83A1 1 0 0 0 3 17.619V4.854a1 1 0 0 1 1.447-.894l3.659 1.83a2 2 0 0 0 1.788 0z"/><path d="M9 3.712V18.513"/><path d="M15 5.487V20.288"/></svg>
+                <span class="text-[9px] uppercase tracking-widest font-bold">旅程規劃</span>
+            </button>
+        </nav>
+    </div>
+
+    <div id="modal-delete" class="fixed inset-0 bg-neutral-900/40 backdrop-blur-sm z-[100] flex items-end p-6 hide">
+        <div class="bg-white w-full p-6 rounded-3xl">
+            <h3 class="text-lg font-medium mb-2">確定刪除？</h3>
+            <p class="text-sm text-neutral-400 font-light mb-8">此動作無法復原，裝備或行程將永久移除。</p>
+            <div class="grid grid-cols-2 gap-3">
+                <button onclick="closeModal('modal-delete')" class="bg-neutral-100 text-neutral-600 px-4 py-3 rounded-xl">取消</button>
+                <button id="confirm-delete-btn" class="bg-red-50 text-red-500 px-4 py-3 rounded-xl">確定刪除</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- 資料狀態 ---
+        let gear = JSON.parse(localStorage.getItem('ultra_gear') || '[]');
+        let categories = JSON.parse(localStorage.getItem('ultra_cats') || '[{"id":"c1","name":"睡眠系統"},{"id":"c2","name":"背負系統"},{"id":"c3","name":"炊具飲食"}]');
+        let trips = JSON.parse(localStorage.getItem('ultra_trips') || '[]');
+        
+        let activeTab = 'gear'; // 'gear' | 'trips'
+        let currentView = 'list'; // 'list' | 'gear-form' | 'trip-form' | 'cat-manager'
+        let editingId = null;
+        let tempFormData = {};
+        const COLORS = ['#171717', '#404040', '#737373', '#a3a3a3', '#d4d4d4', '#e5e5e5'];
+
+        // --- 資料持久化 ---
+        function saveData() {
+            localStorage.setItem('ultra_gear', JSON.stringify(gear));
+            localStorage.setItem('ultra_cats', JSON.stringify(categories));
+            localStorage.setItem('ultra_trips', JSON.stringify(trips));
+            render();
+        }
+
+        // --- 視圖控制 ---
+        function render() {
+            const container = document.getElementById('view-container');
+            const nav = document.getElementById('bottom-nav');
+            
+            if (currentView === 'list') {
+                nav.classList.remove('hide');
+                renderListView(container);
+            } else if (currentView === 'gear-form') {
+                nav.classList.add('hide');
+                renderGearForm(container);
+            } else if (currentView === 'cat-manager') {
+                nav.classList.add('hide');
+                renderCatManager(container);
+            } else if (currentView === 'trip-form') {
+                nav.classList.add('hide');
+                renderTripForm(container);
+            }
+        }
+
+        function switchTab(tab) {
+            activeTab = tab;
+            const gearBtn = document.getElementById('nav-gear');
+            const tripsBtn = document.getElementById('nav-trips');
+            
+            if (tab === 'gear') {
+                gearBtn.className = "flex flex-col items-center gap-1 w-1/2 text-neutral-900";
+                tripsBtn.className = "flex flex-col items-center gap-1 w-1/2 text-neutral-300";
+            } else {
+                tripsBtn.className = "flex flex-col items-center gap-1 w-1/2 text-neutral-900";
+                gearBtn.className = "flex flex-col items-center gap-1 w-1/2 text-neutral-300";
+            }
+            render();
+        }
+
+        // --- 渲染：主列表 ---
+        function renderListView(container) {
+            let html = `<div class="p-6 pb-24 animate-in">`;
+            
+            if (activeTab === 'gear') {
+                html += `
+                    <div class="flex justify-end mb-6">
+                        <button onclick="currentView='cat-manager'; render()" class="text-neutral-300 hover:text-neutral-900"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg></button>
+                    </div>`;
+                
+                if (gear.length === 0) {
+                    html += `<div class="h-96 flex flex-col items-center justify-center text-neutral-200 font-light italic">尚無裝備</div>`;
+                } else {
+                    [...categories, {id:'', name:'未分類'}].forEach(cat => {
+                        const items = gear.filter(g => (g.category || '') === (cat.id || ''));
+                        if (items.length === 0) return;
+                        html += `<h3 class="text-[10px] uppercase tracking-[0.2em] text-neutral-400 border-b border-neutral-100 pb-2 mb-4 mt-8">${cat.name}</h3>`;
+                        items.forEach(item => {
+                            html += `
+                                <div onclick="editGear('${item.id}')" class="flex justify-between items-center py-4 border-b border-neutral-50 active:bg-neutral-50">
+                                    <div>
+                                        <div class="text-sm font-medium">${item.name}</div>
+                                        <div class="text-[10px] text-neutral-400 font-light">${item.desc || ''}</div>
+                                    </div>
+                                    <div class="text-xs text-neutral-400">${item.weight}g</div>
+                                </div>`;
+                        });
+                    });
+                }
+            } else {
+                // 行程列表
+                html += `<div class="space-y-4 pt-6">`;
+                if (trips.length === 0) {
+                    html += `<div class="h-96 flex flex-col items-center justify-center text-neutral-200 font-light italic">開始規劃旅程</div>`;
+                } else {
+                    trips.forEach(trip => {
+                        const stats = getTripStats(trip);
+                        html += `
+                            <div onclick="editTrip('${trip.id}')" class="p-5 border border-neutral-100 rounded-2xl shadow-sm active:scale-95 transition-transform bg-white">
+                                <div class="flex justify-between items-start mb-4">
+                                    <h3 class="font-medium">${trip.name}</h3>
+                                    <span class="text-[10px] text-neutral-300">${new Date(trip.createdAt).toLocaleDateString()}</span>
+                                </div>
+                                <div class="flex justify-between items-end">
+                                    <div class="flex gap-6">
+                                        <div class="text-xs text-neutral-400">天數 <span class="text-neutral-900 ml-1">${trip.days || 0}</span></div>
+                                        <div class="text-xs text-neutral-400">總重 <span class="text-neutral-900 ml-1">${(stats.total/1000).toFixed(2)}kg</span></div>
+                                    </div>
+                                    <svg class="text-neutral-200" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>
+                                </div>
+                            </div>`;
+                    });
+                }
+                html += `</div>`;
+            }
+
+            // 懸浮按鈕
+            html += `
+                <button onclick="addNewItem()" class="fixed bottom-24 right-6 w-14 h-14 bg-neutral-900 text-white rounded-full shadow-2xl flex items-center justify-center active:scale-90 transition-transform z-20">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                </button>
+            </div>`;
+            container.innerHTML = html;
+        }
+
+        // --- 渲染：裝備表單 ---
+        function renderGearForm(container) {
+            const isEdit = editingId !== null;
+            container.innerHTML = `
+                <div class="p-6 pt-12 animate-in">
+                    <button onclick="currentView='list'; render()" class="mb-8 flex items-center text-neutral-400 text-sm">
+                        <svg class="mr-1" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg> 返回清單
+                    </button>
+                    <div class="space-y-6">
+                        <div class="space-y-1">
+                            <label class="text-[10px] uppercase tracking-widest text-neutral-400 ml-1">裝備名稱</label>
+                            <input id="f-name" class="w-full bg-neutral-50 p-4 rounded-xl outline-none" value="${tempFormData.name || ''}">
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="space-y-1">
+                                <label class="text-[10px] uppercase tracking-widest text-neutral-400 ml-1">重量 (g)</label>
+                                <input id="f-weight" type="number" class="w-full bg-neutral-50 p-4 rounded-xl outline-none" value="${tempFormData.weight || ''}">
+                            </div>
+                            <div class="space-y-1">
+                                <label class="text-[10px] uppercase tracking-widest text-neutral-400 ml-1">分類</label>
+                                <select id="f-cat" class="w-full bg-neutral-50 p-4 rounded-xl outline-none">
+                                    <option value="">未分類</option>
+                                    ${categories.map(c => `<option value="${c.id}" ${tempFormData.category === c.id ? 'selected' : ''}>${c.name}</option>`).join('')}
+                                </select>
+                            </div>
+                        </div>
+                        <div class="space-y-1">
+                            <label class="text-[10px] uppercase tracking-widest text-neutral-400 ml-1">描述 (選填)</label>
+                            <input id="f-desc" class="w-full bg-neutral-50 p-4 rounded-xl outline-none" value="${tempFormData.desc || ''}">
+                        </div>
+                        <div class="pt-8 space-y-3">
+                            <button onclick="submitGear()" class="w-full py-4 bg-neutral-900 text-white rounded-xl flex items-center justify-center gap-2 shadow-sm active:scale-95 transition-all">儲存裝備</button>
+                            ${isEdit ? `<button onclick="triggerDelete('gear', '${editingId}')" class="w-full py-4 bg-transparent text-red-400 flex items-center justify-center gap-2">刪除裝備</button>` : ''}
+                        </div>
+                    </div>
+                </div>`;
+        }
+
+        // --- 渲染：行程規劃表單 ---
+        function renderTripForm(container) {
+            const stats = getTripStats(tempFormData);
+            let html = `
+                <div class="flex flex-col h-screen bg-white animate-in">
+                    <div class="p-4 border-b flex justify-between items-center sticky top-0 bg-white/90 backdrop-blur z-10">
+                        <button onclick="currentView='list'; render()" class="text-neutral-400 p-2"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+                        <div class="text-sm font-medium text-neutral-500">${(stats.total/1000).toFixed(2)} kg</div>
+                        <button onclick="submitTrip()" class="h-9 px-6 bg-neutral-900 text-white rounded-full text-xs">完成</button>
+                    </div>
+                    <div class="flex-1 overflow-y-auto p-6 pb-24">
+                        <input id="t-name" class="text-2xl font-light w-full outline-none mb-2" placeholder="旅程名稱..." value="${tempFormData.name || ''}">
+                        <div class="flex items-center gap-2 mb-8">
+                            <input id="t-days" type="number" class="w-12 border-b text-center outline-none" value="${tempFormData.days || ''}">
+                            <span class="text-neutral-400 text-sm">天數</span>
+                        </div>`;
+
+            // SVG 圓餅圖
+            if (stats.total > 0) {
+                html += `<div class="mb-10 flex flex-col items-center">
+                    <div class="h-40 w-40 relative mb-6">
+                        <svg viewBox="0 0 36 36" class="w-full h-full transform -rotate-90">
+                            ${generatePieSVG(stats.pieData)}
+                        </svg>
+                        <div class="absolute inset-0 flex items-center justify-center text-[10px] text-neutral-400">比例</div>
+                    </div>
+                    <div class="w-full space-y-2">
+                        ${stats.pieData.map((d, i) => `
+                            <div class="flex justify-between text-xs items-center">
+                                <div class="flex items-center gap-2">
+                                    <div class="w-1.5 h-1.5 rounded-full" style="background-color: ${COLORS[i % COLORS.length]}"></div>
+                                    <span class="text-neutral-500">${d.name}</span>
+                                </div>
+                                <div class="flex gap-4">
+                                    <span class="text-neutral-300">${d.percent}%</span>
+                                    <span class="text-neutral-800 w-12 text-right">${d.value}g</span>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>`;
+            }
+
+            // 裝備選取清單
+            html += `<div class="space-y-8 mt-10">`;
+            [...categories, {id:'', name:'未分類'}].forEach(cat => {
+                const items = gear.filter(g => (g.category || '') === (cat.id || ''));
+                if (items.length === 0) return;
+                html += `<div><div class="text-[10px] uppercase tracking-widest text-neutral-300 mb-4 border-b pb-1">${cat.name}</div>`;
+                items.forEach(item => {
+                    const status = (tempFormData.selectedGear || {})[item.id];
+                    html += `
+                        <div class="flex items-center justify-between py-3">
+                            <div class="flex-1 ${status === 'leave' ? 'opacity-20 line-through' : status === 'take' ? 'opacity-100' : 'opacity-50'}">
+                                <div class="text-sm font-medium">${item.name}</div>
+                                <div class="text-[10px] text-neutral-400">${item.weight}g</div>
+                            </div>
+                            <div class="flex gap-2">
+                                <button onclick="toggleGearStatus('${item.id}', 'leave')" class="w-9 h-9 rounded-full flex items-center justify-center transition-colors ${status === 'leave' ? 'bg-neutral-200 text-neutral-600' : 'bg-neutral-50 text-neutral-300'}">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                                </button>
+                                <button onclick="toggleGearStatus('${item.id}', 'take')" class="w-9 h-9 rounded-full flex items-center justify-center transition-colors shadow-sm ${status === 'take' ? 'bg-neutral-900 text-white' : 'bg-neutral-50 text-neutral-300'}">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>
+                                </button>
+                            </div>
+                        </div>`;
+                });
+                html += `</div>`;
+            });
+            html += `</div></div></div>`;
+            container.innerHTML = html;
+        }
+
+        // --- 渲染：分類管理 ---
+        function renderCatManager(container) {
+            container.innerHTML = `
+                <div class="p-6 pt-12 animate-in">
+                    <button onclick="currentView='list'; render()" class="mb-8 flex items-center text-neutral-400 text-sm">
+                        <svg class="mr-1" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg> 返回清單
+                    </button>
+                    <div class="space-y-4 mb-10" id="cat-list">
+                        ${categories.map(cat => `
+                            <div class="flex gap-2">
+                                <input class="flex-1 bg-neutral-50 px-4 py-3 rounded-xl outline-none text-sm" value="${cat.name}" onchange="updateCatName('${cat.id}', this.value)">
+                                <button onclick="deleteCat('${cat.id}')" class="p-3 text-neutral-300 hover:text-red-400"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg></button>
+                            </div>
+                        `).join('')}
+                    </div>
+                    <div class="border-t pt-6 space-y-4">
+                        <label class="text-[10px] uppercase tracking-widest text-neutral-400 ml-1">新增分類</label>
+                        <div class="flex gap-2">
+                            <input id="new-cat-name" class="flex-1 bg-neutral-50 px-4 py-3 rounded-xl outline-none" placeholder="分類名稱...">
+                            <button onclick="addCat()" class="bg-neutral-900 text-white px-4 py-3 rounded-xl"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+                        </div>
+                    </div>
+                </div>`;
+        }
+
+        // --- 功能邏輯 ---
+        function addNewItem() {
+            editingId = null;
+            tempFormData = activeTab === 'gear' ? {} : { selectedGear: {}, createdAt: Date.now() };
+            currentView = activeTab === 'gear' ? 'gear-form' : 'trip-form';
+            render();
+        }
+
+        function editGear(id) {
+            editingId = id;
+            tempFormData = {...gear.find(g => g.id === id)};
+            currentView = 'gear-form';
+            render();
+        }
+
+        function editTrip(id) {
+            editingId = id;
+            tempFormData = {...trips.find(t => t.id === id)};
+            currentView = 'trip-form';
+            render();
+        }
+
+        function submitGear() {
+            const name = document.getElementById('f-name').value;
+            if (!name) return;
+            const item = {
+                id: editingId || Date.now().toString(),
+                name: name,
+                weight: parseFloat(document.getElementById('f-weight').value) || 0,
+                category: document.getElementById('f-cat').value,
+                desc: document.getElementById('f-desc').value
+            };
+            if (editingId) {
+                gear = gear.map(g => g.id === editingId ? item : g);
+            } else {
+                gear.push(item);
+            }
+            currentView = 'list';
+            saveData();
+        }
+
+        function submitTrip() {
+            const name = document.getElementById('t-name').value;
+            if (!name) return;
+            const trip = {
+                ...tempFormData,
+                id: editingId || Date.now().toString(),
+                name: name,
+                days: document.getElementById('t-days').value,
+                createdAt: tempFormData.createdAt || Date.now()
+            };
+            if (editingId) {
+                trips = trips.map(t => t.id === editingId ? trip : t);
+            } else {
+                trips.unshift(trip);
+            }
+            currentView = 'list';
+            saveData();
+        }
+
+        function toggleGearStatus(itemId, status) {
+            if (!tempFormData.selectedGear) tempFormData.selectedGear = {};
+            const current = tempFormData.selectedGear[itemId];
+            tempFormData.selectedGear[itemId] = (current === status) ? undefined : status;
+            renderTripForm(document.getElementById('view-container'));
+        }
+
+        function getTripStats(tripData) {
+            const selected = tripData.selectedGear || {};
+            let total = 0;
+            const cats = {};
+            gear.forEach(g => {
+                if (selected[g.id] === 'take') {
+                    total += g.weight;
+                    const cName = categories.find(c => c.id === g.category)?.name || '未分類';
+                    cats[cName] = (cats[cName] || 0) + g.weight;
+                }
+            });
+            const pieData = Object.entries(cats).map(([name, value]) => ({
+                name,
+                value,
+                percent: total > 0 ? ((value / total) * 100).toFixed(1) : 0
+            })).sort((a, b) => b.value - a.value);
+            return { total, pieData };
+        }
+
+        // --- 圖表生成 (SVG) ---
+        function generatePieSVG(data) {
+            let cumulativePercent = 0;
+            return data.map((d, i) => {
+                const [startX, startY] = getCoordinatesForPercent(cumulativePercent);
+                cumulativePercent += parseFloat(d.percent) / 100;
+                const [endX, endY] = getCoordinatesForPercent(cumulativePercent);
+                const largeArcFlag = d.percent > 50 ? 1 : 0;
+                const pathData = [
+                    `M 18 18`,
+                    `L ${startX} ${startY}`,
+                    `A 18 18 0 ${largeArcFlag} 1 ${endX} ${endY}`,
+                    `Z`
+                ].join(' ');
+                return `<path d="${pathData}" fill="${COLORS[i % COLORS.length]}" class="pie-segment"></path>`;
+            }).join('') + `<circle cx="18" cy="18" r="10" fill="white"></circle>`;
+        }
+
+        function getCoordinatesForPercent(percent) {
+            const x = Math.cos(2 * Math.PI * percent) * 18 + 18;
+            const y = Math.sin(2 * Math.PI * percent) * 18 + 18;
+            return [x, y];
+        }
+
+        // --- 分類與彈窗 ---
+        function addCat() {
+            const name = document.getElementById('new-cat-name').value;
+            if (!name) return;
+            categories.push({ id: 'c' + Date.now(), name });
+            saveData();
+        }
+
+        function updateCatName(id, name) {
+            categories = categories.map(c => c.id === id ? {...c, name} : c);
+            saveData();
+        }
+
+        function deleteCat(id) {
+            if (gear.some(g => g.category === id)) {
+                alert("此分類仍有裝備，請先更改裝備分類。");
+                return;
+            }
+            categories = categories.filter(c => c.id !== id);
+            saveData();
+        }
+
+        function triggerDelete(type, id) {
+            const modal = document.getElementById('modal-delete');
+            const confirmBtn = document.getElementById('confirm-delete-btn');
+            modal.classList.remove('hide');
+            confirmBtn.onclick = () => {
+                if (type === 'gear') gear = gear.filter(g => g.id !== id);
+                else trips = trips.filter(t => t.id !== id);
+                closeModal('modal-delete');
+                currentView = 'list';
+                saveData();
+            };
+        }
+
+        function closeModal(id) {
+            document.getElementById(id).classList.add('hide');
+        }
+
+        // 初始啟動
+        render();
+    </script>
+</body>
+</html>
