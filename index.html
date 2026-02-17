@@ -117,18 +117,10 @@
             consumables.forEach(c => { consTotal += (c.weight || 0); });
             if(consTotal > 0) {
                 total += consTotal;
-                cats['消耗品'] = consTotal;
+                cats['消耗品'] = (cats['消耗品'] || 0) + consTotal;
             }
             
-            return { 
-                total, 
-                checkedCount, 
-                gearTotal, 
-                consTotal,
-                baseWeight: total - consTotal,
-                isDone: gearTotal > 0 && checkedCount === gearTotal, 
-                pieData: Object.entries(cats).map(([name, value]) => ({ name, value, percent: total > 0 ? value/total : 0 })).sort((a,b) => b.value - a.value) 
-            };
+            return { total, checkedCount, gearTotal, isDone: gearTotal > 0 && checkedCount === gearTotal, pieData: Object.entries(cats).map(([name, value]) => ({ name, value, percent: total > 0 ? value/total : 0 })).sort((a,b) => b.value - a.value) };
         }
 
         function generatePieSVG(data){
@@ -165,7 +157,7 @@
         function renderListView(container) {
             let html = `<div class="h-full overflow-y-auto p-6 pb-32 animate-in no-scrollbar">`;
             if (activeTab === 'gear') {
-                html += `<div class="flex justify-between items-center mb-6 relative"><h2 class="text-2xl font-semibold">裝備庫</h2><button onclick="document.getElementById('gear-menu').classList.toggle('hide')" class="text-neutral-400 p-2"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg></button><div id="gear-menu" class="absolute right-0 top-10 w-40 bg-white border rounded-2xl shadow-xl text-sm hide z-50 overflow-hidden"><button onclick="currentView='cat-manager';render()" class="block w-full text-left px-4 py-4 hover:bg-neutral-50">管理分類</button><button onclick="exportCSV()" class="block w-full text-left px-4 py-4 hover:bg-neutral-50 border-t">匯出 CSV</button><button onclick="document.getElementById('csv-input').click()" class="block w-full text-left px-4 py-4 hover:bg-neutral-50 border-t">匯入 CSV</button></div></div>`;
+                html += `<div class="flex justify-between items-center mb-6 relative"><h2 class="text-2xl font-semibold">裝備庫</h2><button onclick="document.getElementById('gear-menu').classList.toggle('hide')" class="text-neutral-400 p-2"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg></button><div id="gear-menu" class="absolute right-0 top-10 w-40 bg-white border rounded-2xl shadow-xl text-sm hide z-50 overflow-hidden"><button onclick="currentView='cat-manager';render()" class="block w-full text-left px-4 py-4 hover:bg-neutral-50">管理分類</button><button onclick="exportCSV()" class="block w-full text-left px-4 py-4 hover:bg-neutral-50 border-t">匯出 CSV</button><button onclick="document.getElementById('csv-input').click()" class="block w-full text-left px-4 py-4 hover:bg-neutral-50 border-t">匯入 CSV</button></div></div>`;
                 [...categories, {id:'', name:'未分類'}].forEach(c => {
                     const items = gear.filter(g => (g.category||'') === (c.id||''));
                     if (items.length === 0) return;
@@ -176,7 +168,7 @@
                 html += `<div class="flex justify-between items-center mb-6"><h2 class="text-2xl font-semibold">行程規劃</h2><div class="flex bg-neutral-100 rounded-lg p-1"><button onclick="tripSortMode='date';render()" class="px-3 py-1 text-xs rounded-md ${tripSortMode==='date'?'bg-white shadow':'text-neutral-400'}">日期</button><button onclick="tripSortMode='weight';render()" class="px-3 py-1 text-xs rounded-md ${tripSortMode==='weight'?'bg-white shadow':'text-neutral-400'}">重量</button></div></div>`;
                 let sortedTrips = [...trips];
                 if(tripSortMode==='date') sortedTrips.sort((a,b)=> new Date(b.startDate||0) - new Date(a.startDate||0));
-                else sortedTrips.sort((a,b)=> getTripStats(b).total - getTripStats(a).total);
+                else sortedTrips.sort((a,b)=> getTripStats(t).total - getTripStats(t).total);
                 sortedTrips.forEach(t => {
                     const s = getTripStats(t);
                     html += `<div onclick="editTrip('${t.id}')" class="p-5 border rounded-2xl shadow-sm bg-white mb-4 active:scale-[0.98] transition-all"><div class="flex justify-between items-start mb-1"><h3 class="font-medium">${t.name}</h3><div class="flex items-center gap-1">${s.isDone ? `<svg class="text-green-500" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>` : ''}<span class="text-[10px] ${s.isDone ? 'text-green-600' : 'text-neutral-400'} font-mono">${s.checkedCount}/${s.gearTotal}</span></div></div><span class="text-[10px] text-neutral-400 block mb-4">${getDateRange(t.startDate, t.days)}</span><div class="flex justify-between items-end"><div class="text-xs text-neutral-400">總重 <b class="text-neutral-800">${(s.total/1000).toFixed(2)}kg</b></div><svg class="text-neutral-200" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg></div></div>`;
@@ -216,6 +208,10 @@
             const stats = getTripStats(tempFormData);
             const consumables = tempFormData.consumables || [];
             
+            // 計算消耗品 vs 非消耗品重量
+            const consWeight = stats.pieData.find(d => d.name === '消耗品')?.value || 0;
+            const gearWeight = stats.total - consWeight;
+
             container.innerHTML = `<div class="flex flex-col h-full bg-white animate-in">
                 <div class="p-4 border-b flex justify-between items-center"><button onclick="currentView='list'; render()" class="text-neutral-400">關閉</button><div class="flex gap-3 items-center">${editingId?`<button onclick="triggerDelete('trip','${editingId}')" class="text-red-500 text-xs">刪除</button>`:''}<button onclick="submitTrip()" class="px-6 py-2 bg-neutral-900 text-white rounded-full text-xs font-medium">儲存</button></div></div>
                 <div class="flex-1 overflow-y-auto p-6 no-scrollbar">
@@ -235,45 +231,40 @@
                     <div class="text-[10px] text-neutral-400 mb-8 border-b pb-4 text-left">${getDateRange(tempFormData.startDate, tempFormData.days)}</div>
                     
                     ${stats.total > 0 ? `
-                    <div class="mb-10 grid grid-cols-2 gap-8 items-center bg-neutral-50/50 p-4 rounded-3xl">
-                        <div class="flex flex-col items-center">
-                            <div class="h-28 w-28 relative mb-2">
+                    <div class="mb-10 bg-neutral-50/50 p-6 rounded-3xl">
+                        <div class="flex items-center justify-around gap-4 mb-6">
+                            <div class="h-32 w-32 relative flex-shrink-0">
                                 <svg viewBox="0 0 36 36" class="w-full h-full transform -rotate-90">
                                     ${generatePieSVG(stats.pieData)}
                                 </svg>
                                 <div class="absolute inset-0 flex flex-col items-center justify-center">
-                                    <div class="text-[10px] font-bold">${(stats.total/1000).toFixed(1)}k</div>
+                                    <div class="text-[8px] uppercase text-neutral-300 font-bold">Total</div>
+                                    <div class="text-base font-bold">${(stats.total/1000).toFixed(2)}<span class="text-[10px] ml-0.5">kg</span></div>
                                 </div>
                             </div>
-                            <div class="text-[8px] uppercase text-neutral-400 font-bold tracking-tighter">Category Distribution</div>
-                        </div>
-                        
-                        <div class="flex flex-col gap-3">
-                            <div>
-                                <div class="flex justify-between text-[10px] mb-1">
-                                    <span class="text-neutral-400">基本重量</span>
-                                    <span class="font-medium">${(stats.baseWeight/1000).toFixed(2)}kg</span>
+                            <div class="flex flex-col gap-4">
+                                <div class="border-l-2 border-neutral-800 pl-3">
+                                    <div class="text-[9px] uppercase font-bold text-neutral-400 mb-0.5">非消耗品</div>
+                                    <div class="text-sm font-bold text-neutral-800">${(gearWeight/1000).toFixed(2)}<span class="text-[10px] ml-0.5 font-normal">kg</span></div>
                                 </div>
-                                <div class="w-full h-1.5 bg-neutral-200 rounded-full overflow-hidden">
-                                    <div class="h-full bg-neutral-400" style="width: ${(stats.baseWeight/stats.total*100)}%"></div>
+                                <div class="border-l-2 border-neutral-300 pl-3">
+                                    <div class="text-[9px] uppercase font-bold text-neutral-400 mb-0.5">消耗品</div>
+                                    <div class="text-sm font-bold text-neutral-800">${(consWeight/1000).toFixed(2)}<span class="text-[10px] ml-0.5 font-normal">kg</span></div>
                                 </div>
-                            </div>
-                            <div>
-                                <div class="flex justify-between text-[10px] mb-1">
-                                    <span class="text-neutral-900 font-bold">消耗品</span>
-                                    <span class="font-medium">${(stats.consTotal/1000).toFixed(2)}kg</span>
-                                </div>
-                                <div class="w-full h-1.5 bg-neutral-200 rounded-full overflow-hidden">
-                                    <div class="h-full bg-neutral-900" style="width: ${(stats.consTotal/stats.total*100)}%"></div>
-                                </div>
-                            </div>
-                            <div class="mt-1 pt-2 border-t border-neutral-100 flex justify-between items-end">
-                                <span class="text-[8px] text-neutral-400 font-bold uppercase">Total Weight</span>
-                                <span class="text-sm font-bold">${(stats.total/1000).toFixed(2)}kg</span>
                             </div>
                         </div>
-                    </div>
-                    ` : ''}
+                        <div class="w-full space-y-1.5 pt-4 border-t border-neutral-100">
+                            ${stats.pieData.map((d,i)=>`
+                                <div class="flex justify-between text-[10px] items-center">
+                                    <div class="flex items-center gap-2">
+                                        <div class="w-1.5 h-1.5 rounded-full" style="background:${d.name==='消耗品'?'#111111':COLORS[i%COLORS.length]}"></div>
+                                        <span class="text-neutral-500">${d.name}</span>
+                                    </div>
+                                    <div class="font-mono text-neutral-400">${(d.percent*100).toFixed(1)}%</div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>` : ''}
                     
                     <div class="mb-10">
                         <div class="text-[10px] uppercase font-bold text-neutral-400 mb-2 border-b border-neutral-100 pb-1">
@@ -376,7 +367,7 @@
                 let nG = [], nC = [], nT = [];
                 lines.forEach(l => {
                     if(!l.trim()) return;
-                    const cols = l.split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/).map(c => c.trim().replace(/^"|"$/g,'').replace(/""/g,'"'));
+                    const cols = l.split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/).map(c => c.trim().replace(/^"|$/g,'').replace(/""/g,'"'));
                     if(cols[0]==='CAT') nC.push({ id: cols[1], name: cols[2] });
                     if(cols[0]==='GEAR') nG.push({ id: cols[1], name: cols[2], weight: parseFloat(cols[3])||0, category: cols[4], desc: cols[5]||'' });
                     if(cols[0]==='TRIP') { 
