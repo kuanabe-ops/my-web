@@ -194,10 +194,17 @@
                     <div class="mb-10">
                         <div class="text-[10px] uppercase font-bold text-neutral-400 mb-2 border-b border-neutral-100 pb-1"><span>消耗品</span></div>
                         ${consumables.map((c, idx) => `<div class="flex items-center justify-between py-3 border-b border-neutral-50"><div><div class="text-sm font-medium">${c.name}</div><div class="text-[10px] text-neutral-400">${c.weight}g</div></div><button onclick="removeConsumable(${idx})" class="text-neutral-300 hover:text-red-500 p-2"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button></div>`).join('')}
-                        <div class="flex gap-2 items-center mt-4">
-                            <input id="new-cons-name" placeholder="名稱" class="w-full bg-neutral-50 rounded-xl px-4 py-3 text-xs outline-none">
-                            <input id="new-cons-weight" type="number" placeholder="g" class="w-20 text-center bg-neutral-50 rounded-xl px-2 py-3 text-xs outline-none">
-                            <button onclick="addConsumable()" class="bg-neutral-700 text-white rounded-xl w-10 h-10 flex items-center justify-center flex-shrink-0">＋</button>
+                        <div class="space-y-3 mt-4">
+                            <div class="flex gap-2 items-center">
+                                <input id="new-cons-name" placeholder="名稱" class="w-full bg-neutral-50 rounded-xl px-4 py-3 text-xs outline-none">
+                                <input id="new-cons-weight" type="number" placeholder="g" class="w-20 text-center bg-neutral-50 rounded-xl px-2 py-3 text-xs outline-none">
+                                <button onclick="addConsumable()" class="bg-neutral-700 text-white rounded-xl w-10 h-10 flex items-center justify-center flex-shrink-0">＋</button>
+                            </div>
+                            <div class="flex gap-2">
+                                <button onclick="fastFillCons('水')" class="text-[10px] px-3 py-1.5 bg-neutral-100 text-neutral-500 rounded-lg active:bg-neutral-200 active:scale-95 transition-all">＋ 水</button>
+                                <button onclick="fastFillCons('行動糧')" class="text-[10px] px-3 py-1.5 bg-neutral-100 text-neutral-500 rounded-lg active:bg-neutral-200 active:scale-95 transition-all">＋ 行動糧</button>
+                                <button onclick="fastFillCons('衛生紙')" class="text-[10px] px-3 py-1.5 bg-neutral-100 text-neutral-500 rounded-lg active:bg-neutral-200 active:scale-95 transition-all">＋ 衛生紙</button>
+                            </div>
                         </div>
                     </div>
                     <div class="space-y-4 pt-4">${[...categories, {id:'', name:'未分類'}].map(c => {
@@ -224,23 +231,13 @@
             const u = URL.createObjectURL(b); const a = document.createElement("a"); a.href = u; a.download = "ultragear_pro_backup.csv"; a.click();
         }
 
-        function prepareImport(event) { 
-            let f = event.target.files[0]; 
-            if(f) { 
-                pendingImportFile = f; 
-                document.getElementById('modal-import').classList.remove('hide'); 
-            }
-            event.target.value = ''; // 重置以利下次選取
-        }
-
-        // --- 強效 CSV 欄位解析器 ---
         function parseCSVLine(l) {
             const cols = [];
             let col = '', inQ = false;
             for (let i = 0; i < l.length; i++) {
                 const c = l[i], next = l[i+1];
                 if (inQ) {
-                    if (c === '"' && next === '"') { col += '"'; i++; } // 處理 CSV 內的轉義引號 ""
+                    if (c === '"' && next === '"') { col += '"'; i++; }
                     else if (c === '"') inQ = false;
                     else col += c;
                 } else {
@@ -251,6 +248,15 @@
             }
             cols.push(col);
             return cols;
+        }
+
+        function prepareImport(event) { 
+            let f = event.target.files[0]; 
+            if(f) { 
+                pendingImportFile = f; 
+                document.getElementById('modal-import').classList.remove('hide'); 
+            }
+            event.target.value = ''; 
         }
 
         function handleImportMode(mode) {
@@ -266,11 +272,7 @@
                     if(cols[0]==='GEAR') nG.push({ id: cols[1], name: cols[2], weight: parseFloat(cols[3])||0, category: cols[4], desc: cols[5]||'' });
                     if(cols[0]==='TRIP') { 
                         let sel = {}, cons = [];
-                        try { 
-                            // 關鍵修復：從 cols[8] 與 cols[9] 讀取狀態字串並轉回物件
-                            sel = JSON.parse(cols[8] || '{}'); 
-                            cons = JSON.parse(cols[9] || '[]'); 
-                        } catch(err) { console.error("JSON 解析失敗:", cols[2], err); }
+                        try { sel = JSON.parse(cols[8]||'{}'); cons = JSON.parse(cols[9]||'[]'); } catch(err) { console.error("JSON Parse Error", err); }
                         nT.push({ id: cols[1], name: cols[2], days: parseInt(cols[6])||1, startDate: cols[7], selectedGear: sel, consumables: cons }); 
                     }
                 });
@@ -289,6 +291,7 @@
         function editGear(id) { editingId = id; tempFormData = {...gear.find(g => g.id === id)}; currentView = 'gear-form'; render(); }
         function editTrip(id) { editingId = id; tempFormData = {...trips.find(t => t.id === id)}; currentView = 'trip-form'; render(); }
         function addConsumable() { const n = document.getElementById('new-cons-name'); const w = document.getElementById('new-cons-weight'); if(!n.value || !w.value) return; if(!tempFormData.consumables) tempFormData.consumables = []; tempFormData.consumables.push({name:n.value, weight:parseFloat(w.value)||0}); renderTripForm(document.getElementById('view-container')); }
+        function fastFillCons(name) { document.getElementById('new-cons-name').value = name; document.getElementById('new-cons-weight').focus(); }
         function removeConsumable(idx) { tempFormData.consumables.splice(idx, 1); renderTripForm(document.getElementById('view-container')); }
         function updateCatName(id, name) { categories = categories.map(c=>c.id===id?{...c, name:name.trim()}:c); saveData(); }
         function addCat() { const n = document.getElementById('new-cat-name').value.trim(); if (!n) return; categories.push({id:'c'+Date.now(), name:n}); saveData(); }
