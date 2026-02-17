@@ -212,7 +212,7 @@
                         </div>
                     </div>
 
-                    <div class="text-[10px] text-neutral-400 mb-8 border-b border-neutral-100 pb-4 text-left">${getDateRange(tempFormData.startDate, tempFormData.days)}</div>
+                    <div class="text-[10px] text-neutral-400 mb-8 border-b pb-4 text-left">${getDateRange(tempFormData.startDate, tempFormData.days)}</div>
                     
                     ${stats.total > 0 ? `<div class="mb-10 flex flex-col items-center"><div class="h-40 w-40 relative mb-4"><svg viewBox="0 0 36 36" class="w-full h-full transform -rotate-90">${generatePieSVG(stats.pieData)}</svg><div class="absolute inset-0 flex flex-col items-center justify-center"><div class="text-[9px] uppercase text-neutral-300 font-bold">Total</div><div class="text-lg font-bold">${(stats.total/1000).toFixed(2)}<span class="text-xs ml-0.5">kg</span></div></div></div><div class="w-full space-y-1">${stats.pieData.map((d,i)=>`<div class="flex justify-between text-[10px] items-center"><div class="flex items-center gap-2"><div class="w-2 h-2 rounded-full" style="background:${d.name==='消耗品'?'#111111':COLORS[i%COLORS.length]}"></div><span>${d.name}</span></div><div class="font-medium">${(d.percent*100).toFixed(1)}%</div></div>`).join('')}</div></div>` : ''}
                     
@@ -223,9 +223,9 @@
                         ${consumables.map((c, idx) => `<div class="flex items-center justify-between py-3 border-b border-neutral-50"><div><div class="text-sm font-medium">${c.name}</div><div class="text-[10px] text-neutral-400">${c.weight}g</div></div><button onclick="removeConsumable(${idx})" class="text-neutral-300 hover:text-red-500 p-2"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button></div>`).join('')}
                         
                         <div class="flex gap-2 my-3 overflow-x-auto no-scrollbar">
-                            <button onclick="fillConsName('水')" class="px-4 py-1.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-500 rounded-lg text-[10px] whitespace-nowrap transition-colors">水</button>
-                            <button onclick="fillConsName('行動糧')" class="px-4 py-1.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-500 rounded-lg text-[10px] whitespace-nowrap transition-colors">行動糧</button>
-                            <button onclick="fillConsName('衛生紙')" class="px-4 py-1.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-500 rounded-lg text-[10px] whitespace-nowrap transition-colors">衛生紙</button>
+                            <button onclick="fillConsName('水')" class="px-3 py-1.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-500 rounded-lg text-[10px] whitespace-nowrap transition-colors">水</button>
+                            <button onclick="fillConsName('行動糧')" class="px-3 py-1.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-500 rounded-lg text-[10px] whitespace-nowrap transition-colors">行動糧</button>
+                            <button onclick="fillConsName('衛生紙')" class="px-3 py-1.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-500 rounded-lg text-[10px] whitespace-nowrap transition-colors">衛生紙</button>
                         </div>
 
                         <div class="flex gap-2 items-center">
@@ -248,7 +248,7 @@
         
         function fillConsName(name) {
             document.getElementById('new-cons-name').value = name;
-            document.getElementById('new-cons-weight').value = ''; // 不填寫預設重量
+            document.getElementById('new-cons-weight').value = '';
             document.getElementById('new-cons-weight').focus();
         }
 
