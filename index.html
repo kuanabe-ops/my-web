@@ -120,7 +120,15 @@
                 cats['消耗品'] = consTotal;
             }
             
-            return { total, checkedCount, gearTotal, isDone: gearTotal > 0 && checkedCount === gearTotal, pieData: Object.entries(cats).map(([name, value]) => ({ name, value, percent: total > 0 ? value/total : 0 })).sort((a,b) => b.value - a.value) };
+            return { 
+                total, 
+                checkedCount, 
+                gearTotal, 
+                consTotal,
+                baseWeight: total - consTotal,
+                isDone: gearTotal > 0 && checkedCount === gearTotal, 
+                pieData: Object.entries(cats).map(([name, value]) => ({ name, value, percent: total > 0 ? value/total : 0 })).sort((a,b) => b.value - a.value) 
+            };
         }
 
         function generatePieSVG(data){
@@ -157,7 +165,7 @@
         function renderListView(container) {
             let html = `<div class="h-full overflow-y-auto p-6 pb-32 animate-in no-scrollbar">`;
             if (activeTab === 'gear') {
-                html += `<div class="flex justify-between items-center mb-6 relative"><h2 class="text-2xl font-semibold">裝備庫</h2><button onclick="document.getElementById('gear-menu').classList.toggle('hide')" class="text-neutral-400 p-2"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg></button><div id="gear-menu" class="absolute right-0 top-10 w-40 bg-white border rounded-2xl shadow-xl text-sm hide z-50 overflow-hidden"><button onclick="currentView='cat-manager';render()" class="block w-full text-left px-4 py-4 hover:bg-neutral-50">管理分類</button><button onclick="exportCSV()" class="block w-full text-left px-4 py-4 hover:bg-neutral-50 border-t">匯出 CSV</button><button onclick="document.getElementById('csv-input').click()" class="block w-full text-left px-4 py-4 hover:bg-neutral-50 border-t">匯入 CSV</button></div></div>`;
+                html += `<div class="flex justify-between items-center mb-6 relative"><h2 class="text-2xl font-semibold">裝備庫</h2><button onclick="document.getElementById('gear-menu').classList.toggle('hide')" class="text-neutral-400 p-2"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg></button><div id="gear-menu" class="absolute right-0 top-10 w-40 bg-white border rounded-2xl shadow-xl text-sm hide z-50 overflow-hidden"><button onclick="currentView='cat-manager';render()" class="block w-full text-left px-4 py-4 hover:bg-neutral-50">管理分類</button><button onclick="exportCSV()" class="block w-full text-left px-4 py-4 hover:bg-neutral-50 border-t">匯出 CSV</button><button onclick="document.getElementById('csv-input').click()" class="block w-full text-left px-4 py-4 hover:bg-neutral-50 border-t">匯入 CSV</button></div></div>`;
                 [...categories, {id:'', name:'未分類'}].forEach(c => {
                     const items = gear.filter(g => (g.category||'') === (c.id||''));
                     if (items.length === 0) return;
@@ -226,7 +234,46 @@
                     
                     <div class="text-[10px] text-neutral-400 mb-8 border-b pb-4 text-left">${getDateRange(tempFormData.startDate, tempFormData.days)}</div>
                     
-                    ${stats.total > 0 ? `<div class="mb-10 flex flex-col items-center"><div class="h-40 w-40 relative mb-4"><svg viewBox="0 0 36 36" class="w-full h-full transform -rotate-90">${generatePieSVG(stats.pieData)}</svg><div class="absolute inset-0 flex flex-col items-center justify-center"><div class="text-[9px] uppercase text-neutral-300 font-bold">Total</div><div class="text-lg font-bold">${(stats.total/1000).toFixed(2)}<span class="text-xs ml-0.5">kg</span></div></div></div><div class="w-full space-y-1">${stats.pieData.map((d,i)=>`<div class="flex justify-between text-[10px] items-center"><div class="flex items-center gap-2"><div class="w-2 h-2 rounded-full" style="background:${d.name==='消耗品'?'#111111':COLORS[i%COLORS.length]}"></div><span>${d.name}</span></div><div class="font-medium">${(d.percent*100).toFixed(1)}%</div></div>`).join('')}</div></div>` : ''}
+                    ${stats.total > 0 ? `
+                    <div class="mb-10 grid grid-cols-2 gap-8 items-center bg-neutral-50/50 p-4 rounded-3xl">
+                        <div class="flex flex-col items-center">
+                            <div class="h-28 w-28 relative mb-2">
+                                <svg viewBox="0 0 36 36" class="w-full h-full transform -rotate-90">
+                                    ${generatePieSVG(stats.pieData)}
+                                </svg>
+                                <div class="absolute inset-0 flex flex-col items-center justify-center">
+                                    <div class="text-[10px] font-bold">${(stats.total/1000).toFixed(1)}k</div>
+                                </div>
+                            </div>
+                            <div class="text-[8px] uppercase text-neutral-400 font-bold tracking-tighter">Category Distribution</div>
+                        </div>
+                        
+                        <div class="flex flex-col gap-3">
+                            <div>
+                                <div class="flex justify-between text-[10px] mb-1">
+                                    <span class="text-neutral-400">基本重量</span>
+                                    <span class="font-medium">${(stats.baseWeight/1000).toFixed(2)}kg</span>
+                                </div>
+                                <div class="w-full h-1.5 bg-neutral-200 rounded-full overflow-hidden">
+                                    <div class="h-full bg-neutral-400" style="width: ${(stats.baseWeight/stats.total*100)}%"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between text-[10px] mb-1">
+                                    <span class="text-neutral-900 font-bold">消耗品</span>
+                                    <span class="font-medium">${(stats.consTotal/1000).toFixed(2)}kg</span>
+                                </div>
+                                <div class="w-full h-1.5 bg-neutral-200 rounded-full overflow-hidden">
+                                    <div class="h-full bg-neutral-900" style="width: ${(stats.consTotal/stats.total*100)}%"></div>
+                                </div>
+                            </div>
+                            <div class="mt-1 pt-2 border-t border-neutral-100 flex justify-between items-end">
+                                <span class="text-[8px] text-neutral-400 font-bold uppercase">Total Weight</span>
+                                <span class="text-sm font-bold">${(stats.total/1000).toFixed(2)}kg</span>
+                            </div>
+                        </div>
+                    </div>
+                    ` : ''}
                     
                     <div class="mb-10">
                         <div class="text-[10px] uppercase font-bold text-neutral-400 mb-2 border-b border-neutral-100 pb-1">
